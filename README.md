@@ -13,7 +13,7 @@ using (clsWebP webp = new clsWebP())
   Bitmap bmp = webp.Load("test.webp");
 ```
 
-//Save bitmap to WebP file
+Save bitmap to WebP file
 ```C#
 Bitmap bmp = new Bitmap("test.jpg");
 using (clsWebP webp = new clsWebP())
