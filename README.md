@@ -1,0 +1,2 @@
+# WebP-wapper
+Wapper for libwebp in C#. The most complete wapper in pure managed C#. Exposes Simple Decoding API, Simple Encoding API, Advanced Encoding API (with stadistis of compresion), Get version library and WebPGetFeatures (info of any WebP file). In the future I´ll update for expose Advanced Decoding API. The wapper are in safe managed code in one class. No need external dll except libwebp.dll (included). The wapper work in 32 and 64 bit system.
