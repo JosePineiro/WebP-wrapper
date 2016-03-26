@@ -6,7 +6,7 @@ The wapper are in safe managed code in one class. No need external dll except li
 
 The code are full comented and include simple example for using the wapper.
 
-Use:
+## Use
 Load WebP image form WebP file
 ```C#
 using (clsWebP webp = new clsWebP())
@@ -84,3 +84,6 @@ MessageBox.Show("Width: " + width + "\n" +
                 "Is animation: " + has_animation + "\n" +
                 "Format: " + format);
 ```
+
+## Thanks to jzern@google.com
+Without their help this wapper would not have been possible.
