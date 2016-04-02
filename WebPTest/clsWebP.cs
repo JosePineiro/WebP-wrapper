@@ -83,7 +83,7 @@ namespace WebP
                 IntPtr ptrData = pinnedWebP.AddrOfPinnedObject();
                 UInt32 dataSize = (uint)webpData.Length;
                 if (UnsafeNativeMethods.WebPGetInfo(ptrData, dataSize, out imgWidth, out imgHeight) == 0)
-                    throw new Exception("Can´t get information of WebP\r\nIn clsWebP.Decode");
+                    throw new Exception("WebP image header is corrupted.\r\nIn clsWebP.Decode");
 
                 //Create a BitmapData and Lock all pixels to be written
                 bmp = new Bitmap(imgWidth, imgHeight, PixelFormat.Format24bppRgb);
@@ -91,8 +91,8 @@ namespace WebP
 
                 //Uncompress the image
                 outputSize = bmpData.Stride * imgHeight;
-                if (UnsafeNativeMethods.WebPDecodeBGRInto(ptrData, dataSize, bmpData.Scan0, outputSize, bmpData.Stride) == null)
-                    throw new Exception("Can´t decode WebP\r\nIn clsWebP.Decode");
+                if (UnsafeNativeMethods.WebPDecodeBGRInto(ptrData, dataSize, bmpData.Scan0, outputSize, bmpData.Stride) == 0)
+                    throw new Exception("Can´t decode WebP.\r\nIn clsWebP.Decode");
 
                 //Unlock the pixels
                 bmp.UnlockBits(bmpData);
@@ -527,7 +527,7 @@ namespace WebP
         /// <param name="output_stride">Specifies the distance between scanlines</param>
         /// <returns>output_buffer if function succeeds; NULL otherwise</returns>
         [DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr WebPDecodeBGRInto(IntPtr data, UInt32 data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+        public static extern int WebPDecodeBGRInto(IntPtr data, UInt32 data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
 
         /// <summary>Lossless encoding images pointed to by *data in WebP format</summary>
         /// <param name="rgb">Pointer to RGB image data</param>
