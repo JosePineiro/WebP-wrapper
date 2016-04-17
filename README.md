@@ -39,21 +39,34 @@ using (clsWebP webp = new clsWebP())
 File.WriteAllBytes("test.webp", rawWebP); 
 ```
 
-
-Encode to memory buffer in SimpleLossless mode and save to file
+Encode to memory buffer in lossly mode with quality 75 and speed 9. Save to file
 ```C#
 byte[] rawWebP = File.ReadAllBytes("test.jpg");
 using (clsWebP webp = new clsWebP())
-  rawWebP = webp.EncodeSimpleLossless(bmp);
+  rawWebP = webp.EncodeLossy(bmp, 75, 9);
+File.WriteAllBytes("test.webp", rawWebP); 
+```
+Encode to memory buffer in lossly mode with quality 75, speed 9 and get information. Save to file
+```C#
+byte[] rawWebP = File.ReadAllBytes("test.jpg");
+using (clsWebP webp = new clsWebP())
+  rawWebP = webp.EncodeLossy(bmp, 75, 9, true);
 File.WriteAllBytes("test.webp", rawWebP); 
 ```
 
+Encode to memory buffer in Lossless mode and save to file
+```C#
+byte[] rawWebP = File.ReadAllBytes("test.jpg");
+using (clsWebP webp = new clsWebP())
+  rawWebP = webp.EncodeLossless(bmp);
+File.WriteAllBytes("test.webp", rawWebP); 
+```
 
 Encode to memory buffer in EncodeLossless mode with speed 9 and save to file
 ```C#
 byte[] rawWebP = File.ReadAllBytes("test.jpg");
 using (clsWebP webp = new clsWebP())
-  rawWebP = webp.EncodeLossless(bmp, 40, 9);
+  rawWebP = webp.EncodeLossless(bmp, 9);
 File.WriteAllBytes("test.webp", rawWebP); 
 ```
 

@@ -116,16 +116,23 @@ namespace WebPTest
                 //Test simple encode lossless mode in memory
                 string simpleLosslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "simpleLossless.webp");
                 using (clsWebP webp = new clsWebP())
-                    rawWebP = webp.EncodeSimpleLossless(bmp);
+                    rawWebP = webp.EncodeLossless(bmp);
                 File.WriteAllBytes(simpleLosslessFileName, rawWebP);
                 MessageBox.Show("Made " + simpleLosslessFileName);
 
                 //Test simple encode lossly mode in memory with quality 75
-                string LossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "simpleLossy.webp");
+                string lossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "simpleLossy.webp");
                 using (clsWebP webp = new clsWebP())
                     rawWebP = webp.EncodeLossy(bmp, 75);
-                File.WriteAllBytes(LossyFileName, rawWebP);
-                MessageBox.Show("Made " + LossyFileName);
+                File.WriteAllBytes(lossyFileName, rawWebP);
+                MessageBox.Show("Made " + lossyFileName);
+
+                //Test simple encode lossly mode in memory with quality 75
+                string advanceLossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "advanceLossy.webp");
+                using (clsWebP webp = new clsWebP())
+                    rawWebP = webp.EncodeLossy(bmp, 75, 9);
+                File.WriteAllBytes(advanceLossyFileName, rawWebP);
+                MessageBox.Show("Made " + advanceLossyFileName);
             }
             catch (Exception ex)
             {
@@ -158,7 +165,7 @@ namespace WebPTest
                                         "Height: " + height + "\n" +
                                         "Has alpha: " + has_alpha + "\n" +
                                         "Is animation: " + has_animation + "\n" +
-                                        "Format: " + format);
+                                        "Format: " + format, "Information");
                     }
                 }
             }
