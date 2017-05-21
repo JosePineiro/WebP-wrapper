@@ -1,14 +1,14 @@
-# WebP-wapper
-Wapper for libwebp in C#. The most complete wapper in pure managed C#.
+# WebP-wrapper
+Wrapper for libwebp in C#. The most complete wapper in pure managed C#.
 
 Exposes Simple Decoding API, Simple Encoding API, Advanced Encoding API (with stadistis of compresion), Get version library and WebPGetFeatures (info of any WebP file). In the future I´ll update for expose Advanced Decoding API.
 
-The wapper are in safe managed code in one class. No need external dll except libwebp_x32.dll and libwebp_x64.dll (included). The wapper can compile in 32, 64 bit and ANY (auto swith to the apropiate library). Updated to WebP v6.0
+The wapper is in safe managed code in one class. No need external dll except libwebp_x86.dll and libwebp_x64.dll (included v6.0). The wrapper work in 32, 64 bit or ANY (auto swith to the apropiate library).
 
-The code are full comented and include simple example for using the wapper.
+The code is full comented and include simple example for using the wrapper.
 
 ## Use
-Load WebP image form WebP file
+Load WebP image for WebP file
 ```C#
 using (clsWebP webp = new clsWebP())
   Bitmap bmp = webp.Load("test.webp");
