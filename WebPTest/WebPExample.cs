@@ -27,7 +27,7 @@ namespace WebPTest
                 if (IntPtr.Size == 8)
                     this.Text = Application.ProductName + " x64 " + Application.ProductVersion;
                 else
-                    this.Text = Application.ProductName + " x32 " + Application.ProductVersion;
+                    this.Text = Application.ProductName + " x86 " + Application.ProductVersion;
 
                 //Inform of libWebP version
                 using (WebP webp = new WebP())
