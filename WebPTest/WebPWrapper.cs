@@ -13,6 +13,7 @@
 /// Another functions:
 /// GetVersion - Get the library version
 /// GetInfo - Get information of WEBP data
+/// GetPictureDistortion - Get PSNR, SSIM or LSIM distortion metric between two pictures
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 using System;
 using System.Drawing;
@@ -448,7 +449,7 @@ namespace WebPWrapper
                 if (UnsafeNativeMethods.WebPValidateConfig(ref config) != 1)
                     throw new Exception("Bad config parameters");
 
-                // Setup the input data, allocating a the bitmap, width and height
+                // Setup the input data, allocating the bitmap, width and height
                 bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
                 wpic = new WebPPicture();
                 if (UnsafeNativeMethods.WebPPictureInitInternal(ref wpic) != 1)
@@ -539,6 +540,73 @@ namespace WebPWrapper
                 return major + "." + minor + "." + revision;
             }
             catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.GetVersion"); }
+        }
+
+        /// <summary>Compute PSNR, SSIM or LSIM distortion metric between two pictures. Warning: this function is rather CPU-intensive.</summary>
+        /// <param name="source">Picture to measure</param>
+        /// <param name="reference">Reference picture</param>
+        /// <param name="metric_type">0 = PSNR, 1 = SSIM, 2 = LSIM</param>
+        /// <returns>dB in the Y/U/V/Alpha/All order</returns>
+        public float[] GetPictureDistortion(Bitmap source, Bitmap reference, int metric_type)
+        {
+            WebPPicture wpicSource = new WebPPicture();
+            WebPPicture wpicReference = new WebPPicture();
+            BitmapData sourceBmpData = null;
+            BitmapData referenceBmpData = null;
+            float[] result = new float[5];
+            GCHandle pinnedResult = GCHandle.Alloc(result, GCHandleType.Pinned);
+
+            try
+            {
+                if (source.Width != reference.Width || source.Height != reference.Height)
+                    throw new Exception("Source and reference pictures don't have same dimension");
+
+                // Setup the source picture data, allocating the bitmap, width and height
+                sourceBmpData = source.LockBits(new Rectangle(0, 0, source.Width, source.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+                wpicSource = new WebPPicture();
+                if (UnsafeNativeMethods.WebPPictureInitInternal(ref wpicSource) != 1)
+                    throw new Exception("Can´t init WebPPictureInit");
+                wpicSource.width = (int)source.Width;
+                wpicSource.height = (int)source.Height;
+                wpicSource.use_argb = 1;
+                if (UnsafeNativeMethods.WebPPictureImportBGR(ref wpicSource, sourceBmpData.Scan0, sourceBmpData.Stride) != 1)
+                    throw new Exception("Can´t allocate memory in WebPPictureImportBGR");
+
+                // Setup the reference picture data, allocating the bitmap, width and height
+                referenceBmpData = reference.LockBits(new Rectangle(0, 0, reference.Width, reference.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+                wpicReference = new WebPPicture();
+                if (UnsafeNativeMethods.WebPPictureInitInternal(ref wpicReference) != 1)
+                    throw new Exception("Can´t init WebPPictureInit");
+                wpicReference.width = (int)reference.Width;
+                wpicReference.height = (int)reference.Height;
+                wpicReference.use_argb = 1;
+                if (UnsafeNativeMethods.WebPPictureImportBGR(ref wpicReference, referenceBmpData.Scan0, referenceBmpData.Stride) != 1)
+                    throw new Exception("Can´t allocate memory in WebPPictureImportBGR");
+
+                //Measure
+                IntPtr ptrResult = pinnedResult.AddrOfPinnedObject();
+                if (UnsafeNativeMethods.WebPPictureDistortion(ref wpicSource, ref wpicReference, metric_type, ptrResult) != 1)
+                    throw new Exception("Can´t measure.");
+                return result;
+            }
+            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.GetPictureDistortion"); }
+            finally
+            {
+                //Unlock the pixels
+                if (sourceBmpData != null)
+                    source.UnlockBits(sourceBmpData);
+                if (referenceBmpData != null)
+                    reference.UnlockBits(referenceBmpData);
+
+                //Free memory
+                if (wpicSource.argb != IntPtr.Zero)
+                    UnsafeNativeMethods.WebPPictureFree(ref wpicSource);
+                if (wpicReference.argb != IntPtr.Zero)
+                    UnsafeNativeMethods.WebPPictureFree(ref wpicReference);
+                //Free memory
+                if (pinnedResult.IsAllocated)
+                    pinnedResult.Free();
+            }
         }
 
         /// <summary>Get info of WEBP data</summary>
@@ -963,6 +1031,29 @@ namespace WebPWrapper
         private static extern int WebPGetDecoderVersion_x86();
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPGetDecoderVersion")]
         private static extern int WebPGetDecoderVersion_x64();
+
+        /// <summary>Compute PSNR, SSIM or LSIM distortion metric between two pictures.</summary>
+        /// <param name="srcPicture">Picture to measure</param>
+        /// <param name="refPicture">Reference picture</param>
+        /// <param name="metric_type">0 = PSNR, 1 = SSIM, 2 = LSIM</param>
+        /// <param name="result">dB in the Y/U/V/Alpha/All order</param>
+        /// <returns>False in case of error (src and ref don't have same dimension, ...)</returns>
+        public static int WebPPictureDistortion(ref WebPPicture srcPicture, ref WebPPicture refPicture, int metric_type, IntPtr pResult)
+        {
+            switch (IntPtr.Size)
+            {
+                case 4:
+                    return WebPPictureDistortion_x86(ref srcPicture, ref refPicture, metric_type, pResult);
+                case 8:
+                    return WebPPictureDistortion_x64(ref srcPicture, ref refPicture, metric_type, pResult);
+                default:
+                    throw new InvalidOperationException("Invalid platform. Can not find proper function");
+            }
+        }
+        [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPPictureDistortion")]
+        private static extern int WebPPictureDistortion_x86(ref WebPPicture srcPicture, ref WebPPicture refPicture, int metric_type, IntPtr pResult);
+        [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPPictureDistortion")]
+        private static extern int WebPPictureDistortion_x64(ref WebPPicture srcPicture, ref WebPPicture refPicture, int metric_type, IntPtr pResult);
     }
     #endregion
 
@@ -1241,3 +1332,138 @@ namespace WebPWrapper
     };
     #endregion
 }
+
+
+
+
+    //////////////// For future implementation /////////////////
+/*
+
+public enum WebPImageHint
+{
+    /// <summary>
+    /// Default preset.
+    /// </summary>
+    WEBP_HINT_DEFAULT = 0,                  // default preset.
+    WEBP_HINT_PICTURE,                      // digital picture, like portrait, inner shot
+    WEBP_HINT_PHOTO,                        // outdoor photograph, with natural lighting
+    WEBP_HINT_GRAPH,                        // Discrete tone image (graph, map-tile etc).
+    WEBP_HINT_LAST                          // list terminator. always last.
+};
+// WebPMemoryWrite: a special WebPWriterFunction that writes to memory using
+// the following WebPMemoryWriter object (to be set as a custom_ptr).
+[StructLayoutAttribute(LayoutKind.Sequential)]
+public struct WebPMemoryWriter
+{
+    public IntPtr mem;                  // final buffer (of size 'max_size', larger than 'size').
+    public UIntPtr size;                // final size
+    public UIntPtr max_size;            // total capacity
+    private Int32 pad1;                 // padding for later use
+}
+
+// The following must be called to deallocate writer->mem memory. The 'writer' object itself is not deallocated.
+[DllImportAttribute("libwebp", EntryPoint = "WebPPictureFree")]
+public static extern void WebPMemoryWriterClear(ref WebPMemoryWriter writer);
+        
+/// <summary>Init the WebPMemoryWriter struct</summary>
+/// <param name="writer"></param>
+//[DllImportAttribute(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
+//public static extern void WebPMemoryWriterInit(out WebPMemoryWriter writer);
+
+/// Return Type: int
+///param0: WebPDecoderConfig*
+///param1: int
+[DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
+public static extern bool WebPInitDecoderConfigInternal(out WebPDecoderConfig config, int WEBP_DECODER_ABI_VERSION);
+
+///param0: uint8_t*
+///param1: size_t->unsigned int
+///param2: WebPBitstreamFeatures*
+///param3: int
+[DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
+public static extern VP8StatusCode WebPGetFeaturesInternal(IntPtr dataIn, UInt32 data_size, out WebPBitstreamFeatures input, int WEBP_DECODER_ABI_VERSION);
+
+///data: uint8_t*
+///data_size: size_t->unsigned int
+///config: WebPDecoderConfig*
+[DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
+public static extern VP8StatusCode WebPDecode(IntPtr data, UInt32 data_size, ref WebPDecoderConfig config);
+
+[DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
+public static extern void WebPFreeDecBuffer(ref WebPDecBuffer output);
+
+[DllImportAttribute(clsWebP.LibwebpDLLName, EntryPoint = "WebPSafeFree", CallingConvention = CallingConvention.Cdecl)]
+public static extern void WebPSafeFree(IntPtr toDeallocate);
+ 
+[StructLayoutAttribute(LayoutKind.Sequential)]
+struct WebPDecoderConfig
+{
+    public WebPBitstreamFeatures input;
+    public WebPDecBuffer output;
+    public WebPDecoderOptions options;
+}
+
+// Output buffer
+[StructLayoutAttribute(LayoutKind.Sequential)]
+struct WebPDecBuffer
+{
+    public int colorspace;                  // Colorspace.
+    public int width;                       // Dimensions.
+    public int height;
+    public Int32 is_external_memory;        // If true, 'internal_memory' pointer is not used.
+    public IntPtr rgba; // pointer to RGBA samples
+    public int stride; // stride in bytes from one scanline to the next.
+    #if _WIN64
+        public UInt64 size; // total size of the *rgba buffer.
+    #else
+        public UInt32 size; // total size of the *rgba buffer.
+    #endif
+    public UInt32 pad1;                    // padding for later use
+    public UInt32 pad2;
+    public UInt32 pad3;
+    public UInt32 pad4;
+    public IntPtr private_memory; // Internally allocated memory (only when is_external_memory is false). Should not be used externally, but accessed via the buffer union.
+};
+
+[StructLayoutAttribute(LayoutKind.Sequential)]
+struct WebPDecoderOptions
+{
+    public int bypass_filtering;            // if true, skip the in-loop filtering
+    public int no_fancy_upsampling;         // if true, use faster pointwise upsampler
+    public int use_cropping;                // if true, cropping is applied _first_
+    public int crop_left;                   // top-left position for cropping. Will be snapped to even values.
+    public int crop_top;
+    public int crop_width;                  // dimension of the cropping area
+    public int crop_height;
+    public int use_scaling;                 // if true, scaling is applied _afterward_
+    public int scaled_width;                // final resolution
+    public int scaled_height;
+    public int use_threads;                 // if true, use multi-threaded decoding
+    public int dithering_strength;          // dithering strength (0=Off, 100=full)
+    public int flip;                        // flip output vertically
+    public int alpha_dithering_strength;    // alpha dithering strength in [0..100]
+    // Unused for now:
+    public int force_rotation;              // forced rotation (to be applied _last_)
+    public int no_enhancement;              // if true, discard enhancement layer
+    public UInt32 pad1;                     // padding for later use
+    public UInt32 pad2;
+    public UInt32 pad3;
+};
+
+public enum WEBP_CSP_MODE
+{
+    MODE_RGB = 0, MODE_RGBA = 1,
+    MODE_BGR = 2, MODE_BGRA = 3,
+    MODE_ARGB = 4, MODE_RGBA_4444 = 5,
+    MODE_RGB_565 = 6,
+    // RGB-premultiplied transparent modes (alpha value is preserved)
+    MODE_rgbA = 7,
+    MODE_bgrA = 8,
+    MODE_Argb = 9,
+    MODE_rgbA_4444 = 10,
+    // YUV modes must come after RGB ones.
+    MODE_YUV = 11, MODE_YUVA = 12, // yuv 4:2:0
+    MODE_LAST = 13
+};
+*/
+
