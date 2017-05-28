@@ -1,6 +1,6 @@
 ﻿// clsWebP, by Jose M. Piñeiro
 // Website: https://github.com/JosePineiro/WebP-wapper
-// Version: 1.0.0.2 (May 1, 2017)
+// Version: 1.0.0.3 (May 1, 2017)
 
 using System;
 using System.Drawing;
@@ -47,7 +47,7 @@ namespace WebPTest
             {
                 using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
                 {
-                    openFileDialog.Filter = "Image files (*.webp, *.png)|*.webp;*.png";
+                    openFileDialog.Filter = "Image files (*.webp, *.png, *.tif, *.tiff)|*.webp;*.png;*.tif;*.tiff";
                     openFileDialog.FileName = "";
                     if (openFileDialog.ShowDialog() == DialogResult.OK)
                     {
@@ -77,6 +77,9 @@ namespace WebPTest
 
             try
             {
+                if (this.pictureBox.Image == null)
+                    MessageBox.Show("Please, load an image first");
+
                 //get the picturebox image
                 Bitmap bmp = (Bitmap)pictureBox.Image;
 
@@ -125,6 +128,44 @@ namespace WebPTest
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message + "\r\nIn WebPExample.buttonSave_Click", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void buttonMeasure_Click(object sender, EventArgs e)
+        {
+            if (this.pictureBox.Image == null)
+                MessageBox.Show("Please, load an reference image first");
+
+            using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+            {
+                openFileDialog.Filter = "WebP images (*.webp)|*.webp";
+                openFileDialog.FileName = "";
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    Bitmap source;
+                    Bitmap reference;
+                    float[] result;
+
+                    //Load Bitmaps
+                    source = (Bitmap)this.pictureBox.Image;
+                    using (WebP webp = new WebP())
+                        reference = webp.Load(openFileDialog.FileName);
+
+                    //Measure PSNR
+                    using (WebP webp = new WebP())
+                        result = webp.GetPictureDistortion(source, reference, 0);
+                    MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "PSNR");
+
+                    //Measure SSIM
+                    using (WebP webp = new WebP())
+                        result = webp.GetPictureDistortion(source, reference, 1);
+                    MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "SSIM");
+
+                    //Measure LSIM
+                    using (WebP webp = new WebP())
+                        result = webp.GetPictureDistortion(source, reference, 2);
+                    MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "LSIM");
+                }
             }
         }
 

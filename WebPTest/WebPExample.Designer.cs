@@ -32,6 +32,7 @@
             this.buttonLoad = new System.Windows.Forms.Button();
             this.buttonSave = new System.Windows.Forms.Button();
             this.buttonInfo = new System.Windows.Forms.Button();
+            this.buttonMeasure = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox)).BeginInit();
             this.SuspendLayout();
             // 
@@ -73,7 +74,7 @@
             // buttonInfo
             // 
             this.buttonInfo.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonInfo.Location = new System.Drawing.Point(246, 482);
+            this.buttonInfo.Location = new System.Drawing.Point(169, 482);
             this.buttonInfo.Name = "buttonInfo";
             this.buttonInfo.Size = new System.Drawing.Size(81, 30);
             this.buttonInfo.TabIndex = 3;
@@ -81,11 +82,23 @@
             this.buttonInfo.UseVisualStyleBackColor = true;
             this.buttonInfo.Click += new System.EventHandler(this.buttonInfo_Click);
             // 
+            // buttonMeasure
+            // 
+            this.buttonMeasure.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.buttonMeasure.Location = new System.Drawing.Point(320, 482);
+            this.buttonMeasure.Name = "buttonMeasure";
+            this.buttonMeasure.Size = new System.Drawing.Size(93, 30);
+            this.buttonMeasure.TabIndex = 4;
+            this.buttonMeasure.Text = "Measure WEBP";
+            this.buttonMeasure.UseVisualStyleBackColor = true;
+            this.buttonMeasure.Click += new System.EventHandler(this.buttonMeasure_Click);
+            // 
             // WebPExample
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(577, 524);
+            this.Controls.Add(this.buttonMeasure);
             this.Controls.Add(this.buttonInfo);
             this.Controls.Add(this.buttonSave);
             this.Controls.Add(this.buttonLoad);
@@ -104,6 +117,7 @@
         private System.Windows.Forms.Button buttonLoad;
         private System.Windows.Forms.Button buttonSave;
         private System.Windows.Forms.Button buttonInfo;
+        private System.Windows.Forms.Button buttonMeasure;
     }
 }
 
