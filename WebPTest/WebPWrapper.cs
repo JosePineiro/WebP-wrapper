@@ -184,6 +184,7 @@ namespace WebPWrapper
                 config.segments = 4;
                 config.partitions = 3;
                 config.thread_level = 1;
+                config.preprocessing = 4;
 
                 //Validate the config
                 if (UnsafeNativeMethods.WebPValidateConfig(ref config) != 1)
