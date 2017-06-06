@@ -6,19 +6,11 @@ Exposes Simple Decoding API, Simple Encoding API, Advanced Encoding API (with st
 The wapper is in safe managed code in one class. No need external dll except libwebp_x86.dll and libwebp_x64.dll (included v6.0). The wrapper work in 32, 64 bit or ANY (auto swith to the apropiate library).
 
 The code is full comented and include simple example for using the wrapper.
-
-## Use
+## Decompress Functions:
 Load WebP image for WebP file
 ```C#
 using (WebP webp = new WebP())
   Bitmap bmp = webp.Load("test.webp");
-```
-
-Save bitmap to WebP file
-```C#
-Bitmap bmp = new Bitmap("test.jpg");
-using (WebP webp = new WebP())
-  webp.Save(bmp, 80, "test.webp");
 ```
 
 Decode WebP filename to bitmap and load in PictureBox container
@@ -26,6 +18,30 @@ Decode WebP filename to bitmap and load in PictureBox container
 byte[] rawWebP = File.ReadAllBytes("test.webp");
 using (WebP webp = new WebP())
   this.pictureBox.Image = webp.Decode(rawWebP);
+```
+
+Advanced decode WebP filename to bitmap and load in PictureBox container
+```C#
+byte[] rawWebP = File.ReadAllBytes("test.webp");
+WebPDecoderOptions decoderOptions = new WebPDecoderOptions();
+decoderOptions.use_threads = 1;     //Use multhreading
+decoderOptions.flip = 1;   			//Flip the image
+using (WebP webp = new WebP())
+  this.pictureBox.Image = webp.Decode(rawWebP, decoderOptions);
+```
+
+Get thumbnail with 200x150 pixels
+```C#
+using (WebP webp = new WebP())
+	this.pictureBox.Image = webp.Thumbnail(rawWebP, 200, 150);
+```
+
+## Compress Functions:			
+Save bitmap to WebP file
+```C#
+Bitmap bmp = new Bitmap("test.jpg");
+using (WebP webp = new WebP())
+  webp.Save(bmp, 80, "test.webp");
 ```
 
 Encode to memory buffer in lossly mode with quality 75 and save to file
@@ -43,6 +59,7 @@ using (WebP webp = new WebP())
   rawWebP = webp.EncodeLossy(bmp, 75, 9);
 File.WriteAllBytes("test.webp", rawWebP); 
 ```
+
 Encode to memory buffer in lossly mode with quality 75, speed 9 and get information. Save to file
 ```C#
 byte[] rawWebP = File.ReadAllBytes("test.jpg");
@@ -75,6 +92,7 @@ using (WebP webp = new WebP())
 File.WriteAllBytes("test.webp", rawWebP); 
 ```
 
+## Another Functions:	
 Get version of libwebp.dll
 ```C#
 using (WebP webp = new WebP())
