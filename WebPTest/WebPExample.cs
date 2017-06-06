@@ -1,6 +1,6 @@
 ﻿// clsWebP, by Jose M. Piñeiro
 // Website: https://github.com/JosePineiro/WebP-wapper
-// Version: 1.0.0.3 (May 1, 2017)
+// Version: 1.0.0.4 (Jun 6, 2017)
 
 using System;
 using System.Drawing;
@@ -41,6 +41,7 @@ namespace WebPTest
         #endregion
 
         #region << Events >>
+        /// <summary>Test for load from file function</summary>
         private void buttonLoad_Click(object sender, System.EventArgs e)
         {
             try
@@ -71,6 +72,64 @@ namespace WebPTest
             }
         }
 
+        /// <summary>Test for load thumbnail function</summary>
+        private void buttonThumbnail_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+                {
+                    openFileDialog.Filter = "WebP files (*.webp)|*.webp";
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        string pathFileName = openFileDialog.FileName;
+
+                        byte[] rawWebP = File.ReadAllBytes(pathFileName);
+                        using (WebP webp = new WebP())
+                            this.pictureBox.Image = webp.Thumbnail(rawWebP, 200, 150);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\r\nIn WebPExample.buttonThumbnail_Click", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>Test for advanced decode function</summary>
+        private void buttonCropFlip_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+                {
+                    openFileDialog.Filter = "WebP files (*.webp)|*.webp";
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        string pathFileName = openFileDialog.FileName;
+
+                        byte[] rawWebP = File.ReadAllBytes(pathFileName);
+                        WebPDecoderOptions decoderOptions = new WebPDecoderOptions();
+                        decoderOptions.use_cropping = 1;
+                        decoderOptions.crop_top = 100;       //Top beging of crop area
+                        decoderOptions.crop_left = 100;      //Left beging of crop area
+                        decoderOptions.crop_height = 400;   //Height of crop area
+                        decoderOptions.crop_width = 400;    //Width of crop area
+                        decoderOptions.use_threads = 1;     //Use multhreading
+                        decoderOptions.flip = 1;            //Flip the image
+                        using (WebP webp = new WebP())
+                            this.pictureBox.Image = webp.Decode(rawWebP, decoderOptions);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\r\nIn WebPExample.buttonCrop_Click", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void buttonSave_Click(object sender, System.EventArgs e)
         {
             byte[] rawWebP;
@@ -93,7 +152,7 @@ namespace WebPTest
                 //Test encode lossly mode in memory with quality 75 and speed 9
                 string advanceLossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AdvanceLossy.webp");
                 using (WebP webp = new WebP())
-                    rawWebP = webp.EncodeLossy(bmp, 75, 9, true);
+                    rawWebP = webp.EncodeLossy(bmp, 71, 9, true);
                 File.WriteAllBytes(advanceLossyFileName, rawWebP);
                 MessageBox.Show("Made " + advanceLossyFileName);
                 
