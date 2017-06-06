@@ -1,19 +1,24 @@
 ﻿/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Wrapper for WebP format in C#. (GPL) Jose M. Piñeiro
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////// 
-/// Main functions:
-/// Save - Save a bitmap in WebP file.
-/// Load - Load a WebP file in bitmap.
-/// Decode - Decode WebP data (in byte array) to bitmap.
-/// EncodeLossly - Encode bitmap to WebP with quality lost (return a byte array).
-/// EncodeLossless - Encode bitmap to WebP without quality lost (return a byte array).
-/// EncodeNearLossless - Encode bitmap to WebP in Near lossless (return a byte array).
+/// Decompress Functions:
+/// Bitmap Load(string pathFileName) - Load a WebP file in bitmap.
+/// Bitmap Decode(byte[] rawWebP) - Decode WebP data (rawWebP) to bitmap.
+/// Bitmap Decode(byte[] rawWebP, WebPDecoderOptions options) - Decode WebP data (rawWebP) to bitmap using 'options'.
+/// Bitmap Thumbnail(byte[] rawWebP, int width, int height) - Get a thumbnail from WebP data (rawWebP) with dimensions 'width x height'.
 /// 
+/// Compress Functions:
+/// Save(Bitmap bmp, string pathFileName, int quality = 75) - Save bitmap with quality lost to WebP file. Opcionally select 'quality'.
+/// byte[] EncodeLossy(Bitmap bmp, int quality = 75) - Encode bitmap with quality lost to WebP byte array. Opcionally select 'quality'.
+/// byte[] EncodeLossy(Bitmap bmp, int quality, int speed, bool info = false) - Encode bitmap with quality lost to WebP byte array. Select 'quality' and 'speed'. 
+/// byte[] EncodeLossless(Bitmap bmp) - Encode bitmap without quality lost to WebP byte array. 
+/// byte[] EncodeLossless(Bitmap bmp, int speed, bool info = false) - Encode bitmap without quality lost to WebP byte array. Select 'speed'. 
+/// byte[] EncodeNearLossless(Bitmap bmp, int quality, int speed = 9, bool info = false) - Encode bitmap with nearlossless to WebP byte array. Select 'quality' and 'speed'. 
 /// 
 /// Another functions:
-/// GetVersion - Get the library version
-/// GetInfo - Get information of WEBP data
-/// GetPictureDistortion - Get PSNR, SSIM or LSIM distortion metric between two pictures
+/// string GetVersion() - Get the library version
+/// GetInfo(byte[] rawWebP, out int width, out int height, out bool has_alpha, out bool has_animation, out string format) - Get information of WEBP data
+/// float[] PictureDistortion(Bitmap source, Bitmap reference, int metric_type) - Get PSNR, SSIM or LSIM distortion metric between two pictures
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 using System;
 using System.Drawing;
@@ -33,39 +38,33 @@ namespace WebPWrapper
         /// <returns>Bitmap with the WebP image</returns>
         public Bitmap Load(string pathFileName)
         {
-            byte[] rawWebP;
-            Bitmap bmp = null;
-
             try
             {
                 //Read webP file
-                rawWebP = File.ReadAllBytes(pathFileName);
+                byte[] rawWebP = File.ReadAllBytes(pathFileName);
 
-                bmp = Decode(rawWebP);
-
-                return bmp;
+                return Decode(rawWebP);
             }
             catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.Load"); }
         }
 
         /// <summary>Decode a WebP image</summary>
-        /// <param name="webpData">the data to uncompress</param>
+        /// <param name="rawWebP">The data to uncompress</param>
         /// <returns>Bitmap with the WebP image</returns>
-        public Bitmap Decode(byte[] webpData)
+        public Bitmap Decode(byte[] rawWebP)
         {
             int imgWidth;
             int imgHeight;
             int outputSize;
             Bitmap bmp = null;
             BitmapData bmpData = null;
-            GCHandle pinnedWebP = GCHandle.Alloc(webpData, GCHandleType.Pinned);
+            GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
 
             try
             {
                 //Get image width and height
                 IntPtr ptrData = pinnedWebP.AddrOfPinnedObject();
-                UInt32 dataSize = (uint)webpData.Length;
-                if (UnsafeNativeMethods.WebPGetInfo(ptrData, dataSize, out imgWidth, out imgHeight) == 0)
+                if (UnsafeNativeMethods.WebPGetInfo(ptrData, rawWebP.Length, out imgWidth, out imgHeight) == 0)
                     throw new Exception("Can´t get information of WebP");
 
                 //Create a BitmapData and Lock all pixels to be written
@@ -74,7 +73,7 @@ namespace WebPWrapper
 
                 //Uncompress the image
                 outputSize = bmpData.Stride * imgHeight;
-                if (UnsafeNativeMethods.WebPDecodeBGRInto(ptrData, dataSize, bmpData.Scan0, outputSize, bmpData.Stride) == 0)
+                if (UnsafeNativeMethods.WebPDecodeBGRInto(ptrData, rawWebP.Length, bmpData.Scan0, outputSize, bmpData.Stride) == 0)
                     throw new Exception("Can´t decode WebP");
 
                 return bmp;
@@ -91,6 +90,162 @@ namespace WebPWrapper
                     pinnedWebP.Free();
             }
         }
+
+        /// <summary>Decode a WebP image</summary>
+        /// <param name="rawWebP">the data to uncompress</param>
+        /// <returns>Bitmap with the WebP image</returns>
+        public Bitmap Decode(byte[] rawWebP, WebPDecoderOptions options)
+        {
+            GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
+            Bitmap bmp = null;
+            BitmapData bmpData = null;
+            VP8StatusCode result;
+            int width = 0;
+            int height = 0;
+
+            try
+            {
+                WebPDecoderConfig config = new WebPDecoderConfig();
+                if (UnsafeNativeMethods.WebPInitDecoderConfig(ref config) == 0)
+                {
+                    throw new Exception("WebPInitDecoderConfig failed. Wrong version?");
+                }
+
+                // Read the .webp input file information
+                IntPtr ptrRawWebP = pinnedWebP.AddrOfPinnedObject();
+                if (options.use_scaling == 0)
+                {
+                    result = UnsafeNativeMethods.WebPGetFeatures(ptrRawWebP, rawWebP.Length, ref config.input);
+                    if (result != VP8StatusCode.VP8_STATUS_OK)
+                        throw new Exception("Failed WebPGetFeatures with error " + result);
+
+                    //Test cropping values
+                    if (options.use_cropping == 1)
+                    {
+                        if (options.crop_left + options.crop_width > config.input.width || options.crop_top + options.crop_height > config.input.height)
+                            throw new Exception("Crop options exceded WebP image dimensions");
+                        width = options.crop_width;
+                        height = options.crop_height;
+                    }
+                }
+                else
+                {
+                    width = options.scaled_width;
+                    height = options.scaled_height;
+                }
+
+                config.options.bypass_filtering = options.bypass_filtering;
+                config.options.no_fancy_upsampling = options.no_fancy_upsampling;
+                config.options.use_cropping = options.use_cropping;
+                config.options.crop_left = options.crop_left;
+                config.options.crop_top = options.crop_top;
+                config.options.crop_width = options.crop_width;
+                config.options.crop_height = options.crop_height;
+                config.options.use_scaling = options.use_scaling;
+                config.options.scaled_width = options.scaled_width;
+                config.options.scaled_height = options.scaled_height;
+                config.options.use_threads = options.use_threads;
+                config.options.dithering_strength = options.dithering_strength;
+                config.options.flip = options.flip;
+                config.options.alpha_dithering_strength = options.alpha_dithering_strength;
+
+                // Create a BitmapData and Lock all pixels to be written
+                bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+                bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.WriteOnly, bmp.PixelFormat);
+
+                // Specify the output format
+                config.output.colorspace = WEBP_CSP_MODE.MODE_BGR;
+                config.output.u.RGBA.rgba = bmpData.Scan0;
+                config.output.u.RGBA.stride = bmpData.Stride;
+                config.output.u.RGBA.size = (UIntPtr)(bmp.Height * bmpData.Stride);
+                config.output.height = bmp.Height;
+                config.output.width = bmp.Width;
+                config.output.is_external_memory = 1;
+
+                // Decode
+                result = UnsafeNativeMethods.WebPDecode(ptrRawWebP, rawWebP.Length, ref config);
+                if (result != VP8StatusCode.VP8_STATUS_OK)
+                {
+                    throw new Exception("Failed WebPDecode with error " + result);
+                }
+                UnsafeNativeMethods.WebPFreeDecBuffer(ref config.output);
+
+                return bmp;
+            }
+            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.Decode"); }
+            finally
+            {
+                //Unlock the pixels
+                if (bmpData != null)
+                    bmp.UnlockBits(bmpData);
+
+                //Free memory
+                if (pinnedWebP.IsAllocated)
+                    pinnedWebP.Free();
+            }
+        }
+        
+        /// <summary>Thumbnail from webP</summary>
+        /// <param name="rawWebP">The data to uncompress</param>
+        /// <param name="width">Wanted width of thumbnail</param>
+        /// <param name="height">Wanted height of thumbnail</param>
+        /// <returns>Bitmap with the WebP thumbnail</returns>
+        public Bitmap Thumbnail(byte[] rawWebP, int width, int height)
+        {
+            GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
+            Bitmap bmp = null;
+            BitmapData bmpData = null;
+
+            try
+            {
+                WebPDecoderConfig config = new WebPDecoderConfig();
+                if (UnsafeNativeMethods.WebPInitDecoderConfig(ref config) == 0)
+                    throw new Exception("WebPInitDecoderConfig failed. Wrong version?");
+
+                // Set up decode options
+                config.options.bypass_filtering = 1;
+                config.options.no_fancy_upsampling = 1;
+                config.options.use_threads = 1;
+                config.options.use_scaling = 1;
+                config.options.scaled_width = width;
+                config.options.scaled_height = height;
+
+                // Create a BitmapData and Lock all pixels to be written
+                bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+                bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.WriteOnly, bmp.PixelFormat);
+
+                // Specify the output format
+                config.output.colorspace = WEBP_CSP_MODE.MODE_BGR;
+                config.output.u.RGBA.rgba = bmpData.Scan0;
+                config.output.u.RGBA.stride = bmpData.Stride;
+                config.output.u.RGBA.size = (UIntPtr)(bmp.Height * bmpData.Stride);
+                config.output.height = bmp.Height;
+                config.output.width = bmp.Width;
+                config.output.is_external_memory = 1;
+
+                // Decode
+                IntPtr ptrRawWebP = pinnedWebP.AddrOfPinnedObject();
+                VP8StatusCode result = UnsafeNativeMethods.WebPDecode(ptrRawWebP, rawWebP.Length, ref config);
+                if (result != VP8StatusCode.VP8_STATUS_OK)
+                    throw new Exception("Failed WebPDecode with error " + result);
+
+                UnsafeNativeMethods.WebPFreeDecBuffer(ref config.output);
+
+                return bmp;
+            }
+            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.Thumbnail"); }
+            finally
+            {
+                //Unlock the pixels
+                if (bmpData != null)
+                    bmp.UnlockBits(bmpData);
+
+                //Free memory
+                if (pinnedWebP.IsAllocated)
+                    pinnedWebP.Free();
+            }
+        }
+
         #endregion
 
         #region | Public Compress Functions |
@@ -120,7 +275,7 @@ namespace WebPWrapper
         public byte[] EncodeLossy(Bitmap bmp, int quality = 75)
         {
             BitmapData bmpData = null;
-            IntPtr unmanagedData = IntPtr.Zero; 
+            IntPtr unmanagedData = IntPtr.Zero;
             byte[] rawWebP = null;
 
             try
@@ -139,7 +294,7 @@ namespace WebPWrapper
 
                 return rawWebP;
             }
-            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.EncodeLossly (Simple)"); }
+            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.EncodeLossly"); }
             finally
             {
                 //Unlock the pixels
@@ -171,7 +326,7 @@ namespace WebPWrapper
                 WebPConfig config = new WebPConfig();
 
                 //Set compresion parameters
-                if (UnsafeNativeMethods.WebPConfigInitInternal(ref config, WebPPreset.WEBP_PRESET_DEFAULT, 75) == 0)
+                if (UnsafeNativeMethods.WebPConfigInit(ref config, WebPPreset.WEBP_PRESET_DEFAULT, 75) == 0)
                     throw new Exception("Can´t config preset");
 
                 // Add additional tuning:
@@ -333,11 +488,12 @@ namespace WebPWrapper
                 WebPConfig config = new WebPConfig();
 
                 //Set compresion parameters
-                if (UnsafeNativeMethods.WebPConfigInitInternal(ref config, WebPPreset.WEBP_PRESET_DEFAULT, (speed + 1) * 10) == 0)
+                if (UnsafeNativeMethods.WebPConfigInit(ref config, WebPPreset.WEBP_PRESET_DEFAULT, (speed + 1) * 10) == 0)
                     throw new Exception("Can´t config preset");
                 if (UnsafeNativeMethods.WebPConfigLosslessPreset(ref config, speed) == 0)
                     throw new Exception("Can´t config lossless preset");
                 config.pass = speed + 1;
+                //config.image_hint = WebPImageHint.WEBP_HINT_PICTURE;
 
                 //Validate the config
                 if (UnsafeNativeMethods.WebPValidateConfig(ref config) != 1)
@@ -403,7 +559,7 @@ namespace WebPWrapper
 
                 return rawWebP;
             }
-            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.EncodeLossless (Advanced)"); }
+            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.EncodeLossless"); }
             finally
             {
                 //Free statistics memory
@@ -439,7 +595,7 @@ namespace WebPWrapper
                 WebPConfig config = new WebPConfig();
 
                 //Set compresion parameters
-                if (UnsafeNativeMethods.WebPConfigInitInternal(ref config, WebPPreset.WEBP_PRESET_DEFAULT, (speed + 1) * 10) == 0)
+                if (UnsafeNativeMethods.WebPConfigInit(ref config, WebPPreset.WEBP_PRESET_DEFAULT, (speed + 1) * 10) == 0)
                     throw new Exception("Can´t config preset");
                 if (UnsafeNativeMethods.WebPConfigLosslessPreset(ref config, speed) == 0)
                     throw new Exception("Can´t config lossless preset");
@@ -527,7 +683,9 @@ namespace WebPWrapper
                     UnsafeNativeMethods.WebPPictureFree(ref wpic);
             }
         }
+        #endregion
 
+        #region | Another Public Functions |
         /// <summary>Get the libwebp version</summary>
         /// <returns>Version of library</returns>
         public string GetVersion()
@@ -541,6 +699,54 @@ namespace WebPWrapper
                 return major + "." + minor + "." + revision;
             }
             catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.GetVersion"); }
+        }
+
+        /// <summary>Get info of WEBP data</summary>
+        /// <param name="rawWebP">The data of WebP</param>
+        /// <param name="width">width of image</param>
+        /// <param name="height">height of image</param>
+        /// <param name="has_alpha">Image has alpha channel</param>
+        /// <param name="has_animation">Image is a animation</param>
+        /// <param name="format">Format of image: 0 = undefined (/mixed), 1 = lossy, 2 = lossless</param>
+        public void GetInfo(byte[] rawWebP, out int width, out int height, out bool has_alpha, out bool has_animation, out string format)
+        {
+            VP8StatusCode result;
+            GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
+
+            try
+            {
+                IntPtr ptrRawWebP = pinnedWebP.AddrOfPinnedObject();
+
+                WebPBitstreamFeatures features = new WebPBitstreamFeatures();
+                result = UnsafeNativeMethods.WebPGetFeatures(ptrRawWebP, rawWebP.Length, ref features);
+
+                if (result != 0)
+                    throw new Exception(result.ToString());
+
+                width = features.width;
+                height = features.height;
+                if (features.has_alpha == 1) has_alpha = true; else has_alpha = false;
+                if (features.has_animation == 1) has_animation = true; else has_animation = false;
+                switch (features.format)
+                {
+                    case 1:
+                        format = "lossy";
+                        break;
+                    case 2:
+                        format = "lossless";
+                        break;
+                    default:
+                        format = "undefined";
+                        break;
+                }
+            }
+            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.GetInfo"); }
+            finally
+            {
+                //Free memory
+                if (pinnedWebP.IsAllocated)
+                    pinnedWebP.Free();
+            }
         }
 
         /// <summary>Compute PSNR, SSIM or LSIM distortion metric between two pictures. Warning: this function is rather CPU-intensive.</summary>
@@ -559,8 +765,14 @@ namespace WebPWrapper
 
             try
             {
+                if (source == null)
+                    throw new Exception("Source picture is void");
+                if (reference == null)
+                    throw new Exception("Reference picture is void");
+                if (metric_type > 2)
+                    throw new Exception("Bad metric_type. Use 0 = PSNR, 1 = SSIM, 2 = LSIM");
                 if (source.Width != reference.Width || source.Height != reference.Height)
-                    throw new Exception("Source and reference pictures don't have same dimension");
+                    throw new Exception("Source and Reference pictures have diferent dimensions");
 
                 // Setup the source picture data, allocating the bitmap, width and height
                 sourceBmpData = source.LockBits(new Rectangle(0, 0, source.Width, source.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
@@ -609,53 +821,6 @@ namespace WebPWrapper
                     pinnedResult.Free();
             }
         }
-
-        /// <summary>Get info of WEBP data</summary>
-        /// <param name="rawWebP">The data of WebP</param>
-        /// <param name="width">width of image</param>
-        /// <param name="height">height of image</param>
-        /// <param name="has_alpha">Image has alpha channel</param>
-        /// <param name="has_animation">Image is a animation</param>
-        /// <param name="format">Format of image: 0 = undefined (/mixed), 1 = lossy, 2 = lossless</param>
-        public void GetInfo(byte[] rawWebP, out int width, out int height, out bool has_alpha, out bool has_animation, out string format)
-        {
-            VP8StatusCode result;
-            GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
-
-            try
-            {
-                IntPtr ptrRawWebP = pinnedWebP.AddrOfPinnedObject();
-
-                WebPBitstreamFeatures features = new WebPBitstreamFeatures();
-                result = UnsafeNativeMethods.WebPGetFeaturesInternal(ptrRawWebP, (uint)rawWebP.Length, ref features);
-                if (result != 0)
-                    throw new Exception(result.ToString());
-
-                width = features.width;
-                height = features.height;
-                if (features.has_alpha == 1) has_alpha = true; else has_alpha = false;
-                if (features.has_animation == 1) has_animation = true; else has_animation = false;
-                switch (features.format)
-                {
-                    case 1:
-                        format = "lossy";
-                        break;
-                    case 2:
-                        format = "lossless";
-                        break;
-                    default:
-                        format = "undefined";
-                        break;
-                }
-            }
-            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.GetInfo"); }
-            finally
-            {
-                //Free memory
-                if (pinnedWebP.IsAllocated)
-                    pinnedWebP.Free();
-            }
-        }
         #endregion
 
         #region | Private Methods |
@@ -698,12 +863,12 @@ namespace WebPWrapper
         /// <param name="preset">Type of image</param>
         /// <param name="quality">Quality of compresion</param>
         /// <returns>0 if error</returns>
-        public static int WebPConfigInitInternal(ref WebPConfig config, WebPPreset preset, float quality)
+        public static int WebPConfigInit(ref WebPConfig config, WebPPreset preset, float quality)
         {
             switch (IntPtr.Size)
             {
                 case 4:
-                    return WebPConfigInitInternal_x86(ref config,  preset,  quality, WEBP_DECODER_ABI_VERSION);
+                    return WebPConfigInitInternal_x86(ref config, preset, quality, WEBP_DECODER_ABI_VERSION);
                 case 8:
                     return WebPConfigInitInternal_x64(ref config, preset, quality, WEBP_DECODER_ABI_VERSION);
                 default:
@@ -720,22 +885,22 @@ namespace WebPWrapper
         /// <param name="data_size">Size of rawWebP</param>
         /// <param name="features">Features of WebP image</param>
         /// <returns>VP8StatusCode</returns>
-        public static VP8StatusCode WebPGetFeaturesInternal(IntPtr rawWebP, UInt32 data_size, ref WebPBitstreamFeatures features)
+        public static VP8StatusCode WebPGetFeatures(IntPtr rawWebP, int data_size, ref WebPBitstreamFeatures features)
         {
             switch (IntPtr.Size)
             {
                 case 4:
-                    return WebPGetFeaturesInternal_x86(rawWebP, data_size, ref features, WEBP_DECODER_ABI_VERSION);
+                    return WebPGetFeaturesInternal_x86(rawWebP, (UIntPtr)data_size, ref features, WEBP_DECODER_ABI_VERSION);
                 case 8:
-                    return WebPGetFeaturesInternal_x64(rawWebP, data_size, ref features, WEBP_DECODER_ABI_VERSION);
+                    return WebPGetFeaturesInternal_x64(rawWebP, (UIntPtr)data_size, ref features, WEBP_DECODER_ABI_VERSION);
                 default:
                     throw new InvalidOperationException("Invalid platform. Can not find proper function");
             }
         }
         [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPGetFeaturesInternal")]
-        private static extern VP8StatusCode WebPGetFeaturesInternal_x86(IntPtr rawWebP, UInt32 data_size, ref WebPBitstreamFeatures features, int WEBP_DECODER_ABI_VERSION);
+        private static extern VP8StatusCode WebPGetFeaturesInternal_x86([InAttribute()] IntPtr rawWebP, UIntPtr data_size, ref WebPBitstreamFeatures features, int WEBP_DECODER_ABI_VERSION);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPGetFeaturesInternal")]
-        private static extern VP8StatusCode WebPGetFeaturesInternal_x64(IntPtr rawWebP, UInt32 data_size, ref WebPBitstreamFeatures features, int WEBP_DECODER_ABI_VERSION);
+        private static extern VP8StatusCode WebPGetFeaturesInternal_x64([InAttribute()] IntPtr rawWebP, UIntPtr data_size, ref WebPBitstreamFeatures features, int WEBP_DECODER_ABI_VERSION);
 
         /// <summary>Activate the lossless compression mode with the desired efficiency.</summary>
         /// <param name="config">The WebPConfig struct</param>
@@ -780,7 +945,6 @@ namespace WebPWrapper
 
         /// <summary>Init the struct WebPPicture ckecking the dll version</summary>
         /// <param name="wpic">The WebPPicture struct</param>
-        /// <param name="WEBP_DECODER_ABI_VERSION">Version of decoder</param>
         /// <returns>1 if not error</returns>
         public static int WebPPictureInitInternal(ref WebPPicture wpic)
         {
@@ -819,7 +983,7 @@ namespace WebPWrapper
         [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPPictureImportBGR")]
         private static extern int WebPPictureImportBGR_x86(ref WebPPicture wpic, IntPtr bgr, int stride);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPPictureImportBGR")]
-        private static extern int WebPPictureImportBGR_x64(ref WebPPicture wpic, IntPtr bgr, int stride); 
+        private static extern int WebPPictureImportBGR_x64(ref WebPPicture wpic, IntPtr bgr, int stride);
 
         /// <summary>Colorspace conversion function to import RGB samples.</summary>
         /// <param name="wpic">The WebPPicture struct</param>
@@ -873,7 +1037,6 @@ namespace WebPWrapper
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncode")]
         private static extern int WebPEncode_x64(ref WebPConfig config, ref WebPPicture picture);
 
-
         /// <summary>Release the memory allocated by WebPPictureAlloc() or WebPPictureImport*()
         /// Note that this function does _not_ free the memory used by the 'picture' object itself.
         /// Besides memory (which is reclaimed) all other fields of 'picture' are preserved.</summary>
@@ -903,22 +1066,22 @@ namespace WebPWrapper
         /// <param name="width">The range is limited currently from 1 to 16383</param>
         /// <param name="height">The range is limited currently from 1 to 16383</param>
         /// <returns>1 if success, otherwise error code returned in the case of (a) formatting error(s).</returns>
-        public static int WebPGetInfo(IntPtr data, UInt32 data_size, out int width, out int height)
+        public static int WebPGetInfo(IntPtr data, int data_size, out int width, out int height)
         {
             switch (IntPtr.Size)
             {
                 case 4:
-                    return WebPGetInfo_x86(data, data_size, out width, out height);
+                    return WebPGetInfo_x86(data, (UIntPtr)data_size, out width, out height);
                 case 8:
-                    return WebPGetInfo_x64(data, data_size, out width, out height);
+                    return WebPGetInfo_x64(data, (UIntPtr)data_size, out width, out height);
                 default:
                     throw new InvalidOperationException("Invalid platform. Can not find proper function");
             }
         }
         [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPGetInfo")]
-        private static extern int WebPGetInfo_x86(IntPtr data, UInt32 data_size, out int width, out int height);
+        private static extern int WebPGetInfo_x86([InAttribute()] IntPtr data, UIntPtr data_size, out int width, out int height);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPGetInfo")]
-        private static extern int WebPGetInfo_x64(IntPtr data, UInt32 data_size, out int width, out int height);
+        private static extern int WebPGetInfo_x64([InAttribute()] IntPtr data, UIntPtr data_size, out int width, out int height);
 
         /// <summary>Decode WEBP image pointed to by *data and returns BGR samples into a pre-allocated buffer</summary>
         /// <param name="data">Pointer to WebP image data</param>
@@ -927,22 +1090,85 @@ namespace WebPWrapper
         /// <param name="output_buffer_size">Size of allocated buffer</param>
         /// <param name="output_stride">Specifies the distance between scanlines</param>
         /// <returns>output_buffer if function succeeds; NULL otherwise</returns>
-        public static int WebPDecodeBGRInto(IntPtr data, UInt32 data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
+        public static int WebPDecodeBGRInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
         {
             switch (IntPtr.Size)
             {
                 case 4:
-                    return WebPDecodeBGRInto_x86(data, data_size, output_buffer, output_buffer_size, output_stride);
+                    return WebPDecodeBGRInto_x86(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride);
                 case 8:
-                    return WebPDecodeBGRInto_x64(data, data_size, output_buffer, output_buffer_size, output_stride);
+                    return WebPDecodeBGRInto_x64(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride);
                 default:
                     throw new InvalidOperationException("Invalid platform. Can not find proper function");
             }
         }
         [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecodeBGRInto")]
-        private static extern int WebPDecodeBGRInto_x86(IntPtr data, UInt32 data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+        private static extern int WebPDecodeBGRInto_x86([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecodeBGRInto")]
-        private static extern int WebPDecodeBGRInto_x64(IntPtr data, UInt32 data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+        private static extern int WebPDecodeBGRInto_x64([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+
+        /// <summary>Initialize the configuration as empty. This function must always be called first, unless WebPGetFeatures() is to be called.</summary>
+        /// <param name="webPDecoderConfig">Configuration struct</param>
+        /// <returns>False in case of mismatched version.</returns>
+        public static int WebPInitDecoderConfig(ref WebPDecoderConfig webPDecoderConfig)
+        {
+            switch (IntPtr.Size)
+            {
+                case 4:
+                    return WebPInitDecoderConfigInternal_x86(ref webPDecoderConfig, WEBP_DECODER_ABI_VERSION);
+                case 8:
+                    return WebPInitDecoderConfigInternal_x64(ref webPDecoderConfig, WEBP_DECODER_ABI_VERSION);
+                default:
+                    throw new InvalidOperationException("Invalid platform. Can not find proper function");
+            }
+        }
+        [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPInitDecoderConfigInternal")]
+        private static extern int WebPInitDecoderConfigInternal_x86(ref WebPDecoderConfig webPDecoderConfig, int WEBP_DECODER_ABI_VERSION);
+        [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPInitDecoderConfigInternal")]
+        private static extern int WebPInitDecoderConfigInternal_x64(ref WebPDecoderConfig webPDecoderConfig, int WEBP_DECODER_ABI_VERSION);
+
+        /// <summary>Decodes the full data at once, taking 'config' into account.</summary>
+        /// <param name="data">WebP raw data to decode</param>
+        /// <param name="data_size">Size of WebP data </param>
+        /// <param name="webPDecoderConfig">Configuration struct</param>
+        /// <returns>VP8_STATUS_OK if the decoding was successful</returns>
+        public static VP8StatusCode WebPDecode(IntPtr data, int data_size, ref WebPDecoderConfig webPDecoderConfig)
+        {
+            switch (IntPtr.Size)
+            {
+                case 4:
+                    return WebPDecode_x86(data, (UIntPtr)data_size, ref webPDecoderConfig);
+                case 8:
+                    return WebPDecode_x64(data, (UIntPtr)data_size, ref webPDecoderConfig);
+                default:
+                    throw new InvalidOperationException("Invalid platform. Can not find proper function");
+            }
+        }
+        [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecode")]
+        private static extern VP8StatusCode WebPDecode_x86(IntPtr data, UIntPtr data_size, ref WebPDecoderConfig config);
+        [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecode")]
+        private static extern VP8StatusCode WebPDecode_x64(IntPtr data, UIntPtr data_size, ref WebPDecoderConfig config);
+
+        /// <summary>Free any memory associated with the buffer. Must always be called last. Doesn't free the 'buffer' structure itself.</summary>
+        /// <param name="buffer">WebPDecBuffer</param>
+        public static void WebPFreeDecBuffer(ref WebPDecBuffer buffer)
+        {
+            switch (IntPtr.Size)
+            {
+                case 4:
+                    WebPFreeDecBuffer_x86(ref buffer);
+                    break;
+                case 8:
+                    WebPFreeDecBuffer_x64(ref buffer);
+                    break;
+                default:
+                    throw new InvalidOperationException("Invalid platform. Can not find proper function");
+            }
+        }
+        [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPFreeDecBuffer")]
+        private static extern void WebPFreeDecBuffer_x86(ref WebPDecBuffer buffer);
+        [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPFreeDecBuffer")]
+        private static extern void WebPFreeDecBuffer_x64(ref WebPDecBuffer buffer);
 
         /// <summary>Lossy encoding images</summary>
         /// <param name="rgb">Pointer to RGB image data</param>
@@ -965,9 +1191,9 @@ namespace WebPWrapper
             }
         }
         [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeBGR")]
-        private static extern int WebPEncodeBGR_x86(IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output);
+        private static extern int WebPEncodeBGR_x86([InAttribute()] IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeBGR")]
-        private static extern int WebPEncodeBGR_x64(IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output);
+        private static extern int WebPEncodeBGR_x64([InAttribute()] IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output);
 
         /// <summary>Lossless encoding images pointed to by *data in WebP format</summary>
         /// <param name="rgb">Pointer to RGB image data</param>
@@ -989,9 +1215,9 @@ namespace WebPWrapper
             }
         }
         [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeLosslessBGR")]
-        private static extern int WebPEncodeLosslessBGR_x86(IntPtr bgr, int width, int height, int stride, out IntPtr output);
+        private static extern int WebPEncodeLosslessBGR_x86([InAttribute()] IntPtr bgr, int width, int height, int stride, out IntPtr output);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeLosslessBGR")]
-        private static extern int WebPEncodeLosslessBGR_x64(IntPtr bgr, int width, int height, int stride, out IntPtr output);
+        private static extern int WebPEncodeLosslessBGR_x64([InAttribute()] IntPtr bgr, int width, int height, int stride, out IntPtr output);
 
         /// <summary>Releases memory returned by the WebPEncode</summary>
         /// <param name="p">Pointer to memory</param>
@@ -1059,277 +1285,501 @@ namespace WebPWrapper
     #endregion
 
     #region | Predefined |
-    /// <summary>
-    /// Enumerate some predefined settings for WebPConfig, depending on the type of source picture. These presets are used when calling WebPConfigPreset().
-    /// </summary>
+    /// <summary>Enumerate some predefined settings for WebPConfig, depending on the type of source picture. These presets are used when calling WebPConfigPreset().</summary>
     public enum WebPPreset
     {
-        /// <summary>
-        /// Default preset.
-        /// </summary>
+        /// <summary>Default preset.</summary>
         WEBP_PRESET_DEFAULT = 0,
-        /// <summary>
-        /// Digital picture, like portrait, inner shot.
-        /// </summary>
+        /// <summary>Digital picture, like portrait, inner shot.</summary>
         WEBP_PRESET_PICTURE,
-        /// <summary>
-        /// Outdoor photograph, with natural lighting.
-        /// </summary>
+        /// <summary>Outdoor photograph, with natural lighting.</summary>
         WEBP_PRESET_PHOTO,
-        /// <summary>
-        /// Hand or line drawing, with high-contrast details.
-        /// </summary>
+        /// <summary>Hand or line drawing, with high-contrast details.</summary>
         WEBP_PRESET_DRAWING,
-        /// <summary>
-        /// Small-sized colorful images.
-        /// </summary>
+        /// <summary>Small-sized colorful images.</summary>
         WEBP_PRESET_ICON,
-        /// <summary>
-        /// Text-like.
-        /// </summary>
+        /// <summary>Text-like.</summary>
         WEBP_PRESET_TEXT
     };
 
-    // Encoding error conditions.
+    /// <summary>Encoding error conditions.</summary>
     public enum WebPEncodingError
     {
-        /// <summary>
-        /// No error.
-        /// </summary>
+        /// <summary>No error.</summary>
         VP8_ENC_OK = 0,
-        /// <summary>
-        /// Memory error allocating objects.
-        /// </summary>
+        /// <summary>Memory error allocating objects.</summary>
         VP8_ENC_ERROR_OUT_OF_MEMORY,
-        /// <summary>
-        /// Memory error while flushing bits.
-        /// </summary>
+        /// <summary>Memory error while flushing bits.</summary>
         VP8_ENC_ERROR_BITSTREAM_OUT_OF_MEMORY,
-        /// <summary>
-        /// A  pointer parameter is NULL.
-        /// </summary>
+        /// <summary>A  pointer parameter is NULL.</summary>
         VP8_ENC_ERROR_NULL_PARAMETER,
-        /// <summary>
-        /// Configuration is invalid.
-        /// </summary>
+        /// <summary>Configuration is invalid.</summary>
         VP8_ENC_ERROR_INVALID_CONFIGURATION,
-        /// <summary>
-        /// Picture has invalid width/height.
-        /// </summary>
+        /// <summary>Picture has invalid width/height.</summary>
         VP8_ENC_ERROR_BAD_DIMENSION,
-        /// <summary>
-        /// Partition is bigger than 512k.
-        /// </summary>
-        VP8_ENC_ERROR_PARTITION0_OVERFLOW, 
-        /// <summary>
-        /// Partition is bigger than 16M.
-        /// </summary>
+        /// <summary>Partition is bigger than 512k.</summary>
+        VP8_ENC_ERROR_PARTITION0_OVERFLOW,
+        /// <summary>Partition is bigger than 16M.</summary>
         VP8_ENC_ERROR_PARTITION_OVERFLOW,
-        /// <summary>
-        /// Error while flushing bytes.
-        /// </summary>
+        /// <summary>Error while flushing bytes.</summary>
         VP8_ENC_ERROR_BAD_WRITE,
-        /// <summary>
-        /// File is bigger than 4G.
-        /// </summary>
+        /// <summary>File is bigger than 4G.</summary>
         VP8_ENC_ERROR_FILE_TOO_BIG,
-        /// <summary>
-        /// Abort request by user.
-        /// </summary>
+        /// <summary>Abort request by user.</summary>
         VP8_ENC_ERROR_USER_ABORT,
-        /// <summary>
-        /// List terminator. always last.
-        /// </summary>
+        /// <summary>List terminator. always last.</summary>
         VP8_ENC_ERROR_LAST,
     }
 
-    // Enumeration of the status codes
+    /// <summary>Enumeration of the status codes.</summary>
     public enum VP8StatusCode
     {
-        /// <summary>
-        /// No error.
-        /// </summary>
+        /// <summary>No error.</summary>
         VP8_STATUS_OK = 0,
-        /// <summary>
-        /// Memory error allocating objects.
-        /// </summary>
+        /// <summary>Memory error allocating objects.</summary>
         VP8_STATUS_OUT_OF_MEMORY,
         VP8_STATUS_INVALID_PARAM,
         VP8_STATUS_BITSTREAM_ERROR,
-        /// <summary>
-        /// Configuration is invalid.
-        /// </summary>
+        /// <summary>Configuration is invalid.</summary>
         VP8_STATUS_UNSUPPORTED_FEATURE,
         VP8_STATUS_SUSPENDED,
-        /// <summary>
-        /// Abort request by user.
-        /// </summary>
+        /// <summary>Abort request by user.</summary>
         VP8_STATUS_USER_ABORT,
         VP8_STATUS_NOT_ENOUGH_DATA,
+    }
+
+    /// <summary>Image characteristics hint for the underlying encoder.</summary>
+    public enum WebPImageHint
+    {
+        /// <summary>Default preset.</summary>
+        WEBP_HINT_DEFAULT = 0,
+        /// <summary>Digital picture, like portrait, inner shot</summary>
+        WEBP_HINT_PICTURE,
+        /// <summary>Outdoor photograph, with natural lighting</summary>
+        WEBP_HINT_PHOTO,
+        /// <summary>Discrete tone image (graph, map-tile etc).</summary>
+        WEBP_HINT_GRAPH,
+        /// <summary>list terminator. always last.</summary>
+        WEBP_HINT_LAST
+    };
+
+    /// <summary>Describes the byte-ordering of packed samples in memory.</summary>
+    public enum WEBP_CSP_MODE
+    {
+        /// <summary>Byte-order: R,G,B,R,G,B,...</summary>
+        MODE_RGB = 0,
+        /// <summary>Byte-order: R,G,B,A,R,G,B,A,...</summary>
+        MODE_RGBA = 1,
+        /// <summary>Byte-order: B,G,R,B,G,R,...</summary>
+        MODE_BGR = 2,
+        /// <summary>Byte-order: B,G,R,A,B,G,R,A,...</summary>
+        MODE_BGRA = 3,
+        /// <summary>Byte-order: A,R,G,B,A,R,G,B,...</summary>
+        MODE_ARGB = 4,
+        /// <summary>Byte-order: RGB-565: [a4 a3 a2 a1 a0 r5 r4 r3], [r2 r1 r0 g4 g3 g2 g1 g0], ...
+        /// WEBP_SWAP_16BITS_CSP is defined, 
+        /// Byte-order: RGB-565: [a4 a3 a2 a1 a0 b5 b4 b3], [b2 b1 b0 g4 g3 g2 g1 g0], ...</summary>
+        MODE_RGBA_4444 = 5,
+        /// <summary>Byte-order: RGB-565: [r4 r3 r2 r1 r0 g5 g4 g3], [g2 g1 g0 b4 b3 b2 b1 b0], ...
+        /// WEBP_SWAP_16BITS_CSP is defined, 
+        /// Byte-order: [b3 b2 b1 b0 a3 a2 a1 a0], [r3 r2 r1 r0 g3 g2 g1 g0], ...</summary>
+        MODE_RGB_565 = 6,
+        /// <summary>RGB-premultiplied transparent modes (alpha value is preserved)</summary>
+        MODE_rgbA = 7,
+        /// <summary>RGB-premultiplied transparent modes (alpha value is preserved)</summary>
+        MODE_bgrA = 8,
+        /// <summary>RGB-premultiplied transparent modes (alpha value is preserved)</summary>
+        MODE_Argb = 9,
+        /// <summary>RGB-premultiplied transparent modes (alpha value is preserved)</summary>
+        MODE_rgbA_4444 = 10,
+        /// <summary>yuv 4:2:0</summary>
+        MODE_YUV = 11,
+        /// <summary>yuv 4:2:0</summary>
+        MODE_YUVA = 12,
+        /// <summary>MODE_LAST -> 13</summary>
+        MODE_LAST = 13,
     }
     #endregion
 
     #region | libwebp structs |
-    // Features gathered from the bitstream
+    /// <summary>Features gathered from the bitstream</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    struct WebPBitstreamFeatures
+    public struct WebPBitstreamFeatures
     {
-        public int width;                       // Width in pixels, as read from the bitstream.
-        public int height;                      // Height in pixels, as read from the bitstream.
-        public int has_alpha;                   // True if the bitstream contains an alpha channel.
-        public int has_animation;               // True if the bitstream is an animation.
-        public int format;                      // 0 = undefined (/mixed), 1 = lossy, 2 = lossless
-        private int pad1;                       // padding for later use
-        private int pad2;                       // padding for later use
-        private int pad3;                       // padding for later use
-        private int pad4;                       // padding for later use
-        private int pad5;                       // padding for later use
+        /// <summary>Width in pixels, as read from the bitstream.</summary>
+        public int width;
+        /// <summary>Height in pixels, as read from the bitstream.</summary>
+        public int height;
+        /// <summary>True if the bitstream contains an alpha channel.</summary>
+        public int has_alpha;
+        /// <summary>True if the bitstream is an animation.</summary>
+        public int has_animation;
+        /// <summary>0 = undefined (/mixed), 1 = lossy, 2 = lossless</summary>
+        public int format;
+        /// <summary>Padding for later use.</summary>
+        [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 5, ArraySubType = UnmanagedType.U4)]
+        private uint[] pad;
     };
 
-    // Compression parameters.
+    /// <summary>Compression parameters.</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
     public struct WebPConfig
     {
-        public int lossless;                // Lossless encoding (0=lossy(default), 1=lossless).
-        public float quality;               // between 0 (smallest file) and 100 (biggest)
-        public int method;                  // quality/speed trade-off (0=fast, 6=slower-better)
-        public UInt32 image_hint;           // Hint for image type (lossless only for now).
-        //Parameters related to lossy compression only.
-        public int target_size;             // if non-zero, set the desired target size in bytes. Takes precedence over the 'compression' parameter.
-        public float target_PSNR;           // if non-zero, specifies the minimal distortion to try to achieve. Takes precedence over target_size.
-        public int segments;                // maximum number of segments to use, in [1..4]
-        public int sns_strength;            // Spatial Noise Shaping. 0=off, 100=maximum.
-        public int filter_strength;         // range: [0 = off .. 100 = strongest]
-        public int filter_sharpness;        // range: [0 = off .. 7 = least sharp]
-        public int filter_type;             // filtering type: 0 = simple, 1 = strong (only used if filter_strength > 0 or autofilter > 0)
-        public int autofilter;              // Auto adjust filter's strength [0 = off, 1 = on]
-        public int alpha_compression;       // Algorithm for encoding the alpha plane (0 = none, 1 = compressed with WebP lossless). Default is 1.
-        public int alpha_filtering;         // Predictive filtering method for alpha plane. 0: none, 1: fast, 2: best. Default if 1.
-        public int alpha_quality;           // Between 0 (smallest size) and 100 (lossless). Default is 100.
-        public int pass;                    // number of entropy-analysis passes (in [1..10]).
-        public int show_compressed;         // if true, export the compressed picture back. In-loop filtering is not applied.
-        public int preprocessing;           // preprocessing filter (0=none, 1=segment-smooth)
-        public int partitions;              // log2(number of token partitions) in [0..3] Default is set to 0 for easier progressive decoding.
-        public int partition_limit;         // quality degradation allowed to fit the 512k limit on prediction modes coding (0: no degradation, 100: maximum possible degradation).
-        public int emulate_jpeg_size;       // If true, compression parameters will be remapped to better match the expected output size from JPEG compression. Generally, the output size will be similar but the degradation will be lower.
-
-        public int thread_level;            // If non-zero, try and use multi-threaded encoding.
-        public int low_memory;              // If set, reduce memory usage (but increase CPU use).
-        public int near_lossless;           // Near lossless encoding [0 = off(default) .. 100]. This feature is experimental.
-        public int exact;                   // if non-zero, preserve the exact RGB values under transparent area. Otherwise, discard this invisible RGB information for better compression. The default value is 0.
-        public int delta_palettization;     // reserved for future lossless feature
-        private int pad1;                   // padding for later use
-        private int pad2;                   // padding for later use
+        /// <summary>Lossless encoding (0=lossy(default), 1=lossless).</summary>
+        public int lossless;
+        /// <summary>Between 0 (smallest file) and 100 (biggest)</summary>
+        public float quality;
+        /// <summary>Quality/speed trade-off (0=fast, 6=slower-better)</summary>
+        public int method;
+        /// <summary>Hint for image type (lossless only for now).</summary>
+        public WebPImageHint image_hint;
+        /// <summary>If non-zero, set the desired target size in bytes. Takes precedence over the 'compression' parameter.</summary>
+        public int target_size;
+        /// <summary>If non-zero, specifies the minimal distortion to try to achieve. Takes precedence over target_size.</summary>
+        public float target_PSNR;
+        /// <summary>Maximum number of segments to use, in [1..4]</summary>
+        public int segments;    
+        /// <summary>Spatial Noise Shaping. 0=off, 100=maximum.</summary>
+        public int sns_strength;
+        /// <summary>Range: [0 = off .. 100 = strongest]</summary>
+        public int filter_strength;
+        /// <summary>Range: [0 = off .. 7 = least sharp]</summary>
+        public int filter_sharpness;
+        /// <summary>Filtering type: 0 = simple, 1 = strong (only used if filter_strength > 0 or autofilter > 0)</summary>
+        public int filter_type;
+        /// <summary>Auto adjust filter's strength [0 = off, 1 = on]</summary>
+        public int autofilter; 
+        /// <summary>Algorithm for encoding the alpha plane (0 = none, 1 = compressed with WebP lossless). Default is 1.</summary>
+        public int alpha_compression;
+        /// <summary>Predictive filtering method for alpha plane. 0: none, 1: fast, 2: best. Default if 1.</summary>
+        public int alpha_filtering;  
+        /// <summary>Between 0 (smallest size) and 100 (lossless). Default is 100.</summary>
+        public int alpha_quality;    
+        /// <summary>Number of entropy-analysis passes (in [1..10]).</summary>
+        public int pass;             
+        /// <summary>If true, export the compressed picture back. In-loop filtering is not applied.</summary>
+        public int show_compressed;  
+        /// <summary>Preprocessing filter (0=none, 1=segment-smooth)</summary>
+        public int preprocessing;    
+        /// <summary>Log2(number of token partitions) in [0..3] Default is set to 0 for easier progressive decoding.</summary>
+        public int partitions;       
+        /// <summary>Quality degradation allowed to fit the 512k limit on prediction modes coding (0: no degradation, 100: maximum possible degradation).</summary>
+        public int partition_limit;
+        /// <summary>If true, compression parameters will be remapped to better match the expected output size from JPEG compression. Generally, the output size will be similar but the degradation will be lower.</summary>
+        public int emulate_jpeg_size;  
+        /// <summary>If non-zero, try and use multi-threaded encoding.</summary>
+        public int thread_level;       
+        /// <summary>If set, reduce memory usage (but increase CPU use).</summary>
+        public int low_memory;         
+        /// <summary>Near lossless encoding [0 = off(default) .. 100]. This feature is experimental.</summary>
+        public int near_lossless;      
+        /// <summary>If non-zero, preserve the exact RGB values under transparent area. Otherwise, discard this invisible RGB information for better compression. The default value is 0.</summary>
+        public int exact;
+        /// <summary>Reserved for future lossless feature</summary>
+        public int delta_palettization;
+        /// <summary>Padding for later use.</summary>
+        private int pad1;
+        /// <summary>Padding for later use.</summary>
+        private int pad2;
     };
 
-    // Main exchange structure (input samples, output bytes, statistics)
+    /// <summary>Main exchange structure (input samples, output bytes, statistics)</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
     public struct WebPPicture
     {
-        /////////////// INPUT
-        public int use_argb;                // Main flag for encoder selecting between ARGB or YUV input. Recommended to use ARGB input (*argb, argb_stride) for lossless, and YUV input (*y, *u, *v, etc.) for lossy
-        public UInt32 colorspace;           // colorspace: should be YUV420 for now (=Y'CbCr). Value = 0
-        // Yuv input (mostly used for input to lossy compression)
-        public int width;                   // Width picture dimensions (less or equal to WEBP_MAX_DIMENSION)
-        public int height;                  // Height picture dimensions (less or equal to WEBP_MAX_DIMENSION)
-        public IntPtr y;                    // pointer to luma plane.
-        public IntPtr u;                    // pointers to chroma planes.
+        /// <summary>Main flag for encoder selecting between ARGB or YUV input. Recommended to use ARGB input (*argb, argb_stride) for lossless, and YUV input (*y, *u, *v, etc.) for lossy</summary>
+        public int use_argb;
+        /// <summary>colorspace: should be YUV420 for now (=Y'CbCr). Value = 0</summary>
+        public UInt32 colorspace;
+        /// <summary>Width of picture (less or equal to WEBP_MAX_DIMENSION)</summary>
+        public int width;
+        /// <summary>Height of picture (less or equal to WEBP_MAX_DIMENSION)</summary>
+        public int height;
+        /// <summary>Pointer to luma plane.</summary>
+        public IntPtr y;    
+        /// <summary>Pointer to chroma U plane.</summary>
+        public IntPtr u;    
+        /// <summary>Pointer to chroma V plane.</summary>
         public IntPtr v;
-        public int y_stride;                // luma stride.
-        public int uv_stride;               // chroma stride.
-        public IntPtr a;                    // pointer to the alpha plane
-        public int a_stride;                // stride of the alpha plane
-        private Int32 pad1;                 // padding for later use
-        private Int32 pad2;
-        // ARGB input (mostly used for input to lossless compression)
-        public IntPtr argb;                 // Pointer to argb (32 bit) plane.
-        public int argb_stride;             // This is stride in pixels units, not bytes.
-        public Int32 pad3;                  // padding for later use
-        public Int32 pad4;
-        public Int32 pad5;
-        /////////////// OUTPUT
-        public IntPtr writer;               // Byte-emission hook, to store compressed bytes as they are ready.
-        public IntPtr custom_ptr;           // can be used by the writer.
+        /// <summary>Luma stride.</summary>
+        public int y_stride;
+        /// <summary>Chroma stride.</summary>
+        public int uv_stride;
+        /// <summary>Pointer to the alpha plane</summary>
+        public IntPtr a;
+        /// <summary>stride of the alpha plane</summary>
+        public int a_stride; 
+        /// <summary>Padding for later use.</summary>
+        [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 2, ArraySubType = UnmanagedType.U4)]
+        private uint[] pad1;
+        /// <summary>Pointer to argb (32 bit) plane.</summary>
+        public IntPtr argb;    
+        /// <summary>This is stride in pixels units, not bytes.</summary>
+        public int argb_stride;
+        /// <summary>Padding for later use.</summary>
+        [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 3, ArraySubType = UnmanagedType.U4)]
+        private uint[] pad2;
+        /// <summary>Byte-emission hook, to store compressed bytes as they are ready.</summary>
+        public IntPtr writer;  
+        /// <summary>Can be used by the writer.</summary>
+        public IntPtr custom_ptr;
         // map for extra information (only for lossy compression mode)
-        public int extra_info_type;         // 1: intra type, 2: segment, 3: quant, 4: intra-16 prediction mode, 5: chroma prediction mode, 6: bit cost, 7: distortion
-        public IntPtr extra_info;           // if not NULL, points to an array of size ((width + 15) / 16) * ((height + 15) / 16) that will be filled with a macroblock map, depending on extra_info_type.
-        /////////////////////////// STATS AND REPORTS
-        public IntPtr stats;                // Pointer to side statistics (updated only if not NULL)
-        public UInt32 error_code;           // Error code for the latest error encountered during encoding
-        public IntPtr progress_hook;        // If not NULL, report progress during encoding.
-        public IntPtr user_data;            // this field is free to be set to any value and used during callbacks (like progress-report e.g.).
-        private Int32 pad6;                 // padding for later use
-        private Int32 pad7;
-        private Int32 pad8;
-        private IntPtr pad9;
-        private IntPtr pad10;
-        private Int32 pad11;
-        private Int32 pad12;
-        private Int32 pad13;
-        private Int32 pad14;
-        private Int32 pad15;
-        private Int32 pad16;
-        private Int32 pad17;
-        private Int32 pad18;
-        //////////////////// PRIVATE FIELDS
-        private IntPtr memory_;             // row chunk of memory for yuva planes
-        private IntPtr memory_argb_;        // and for argb too.
-        private IntPtr pad19;               // padding for later use
-        private IntPtr pad20;               // padding for later use
+        /// <summary>1: intra type, 2: segment, 3: quant, 4: intra-16 prediction mode, 5: chroma prediction mode, 6: bit cost, 7: distortion</summary>
+        public int extra_info_type;
+        /// <summary>if not NULL, points to an array of size ((width + 15) / 16) * ((height + 15) / 16) that will be filled with a macroblock map, depending on extra_info_type.</summary>
+        public IntPtr extra_info;
+        /// <summary>Pointer to side statistics (updated only if not NULL)</summary>
+        public IntPtr stats;        
+        /// <summary>Error code for the latest error encountered during encoding</summary>
+        public UInt32 error_code;   
+        /// <summary>If not NULL, report progress during encoding.</summary>
+        public IntPtr progress_hook;
+        /// <summary>this field is free to be set to any value and used during callbacks (like progress-report e.g.).</summary>
+        public IntPtr user_data;  
+        /// <summary>Padding for later use.</summary>
+        [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 13, ArraySubType = UnmanagedType.U4)]
+        private uint[] pad3;
+        /// <summary>Row chunk of memory for yuva planes</summary>
+        private IntPtr memory_;     
+        /// <summary>row chunk of memory for argb planes</summary>
+        private IntPtr memory_argb_;
+        /// <summary>Padding for later use.</summary>
+        [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 2, ArraySubType = UnmanagedType.U4)]
+        private uint[] pad4;
     };
 
-    // Structure for storing auxiliary statistics (mostly for lossy encoding).
+    /// <summary>Structure for storing auxiliary statistics (mostly for lossy encoding).</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
     public struct WebPAuxStats
     {
-        public int coded_size;                  // final size
-        public float PSNRY;                     // peak-signal-to-noise ratio for Y
-        public float PSNRU;                     // peak-signal-to-noise ratio for U
-        public float PSNRV;                     // peak-signal-to-noise ratio for V
-        public float PSNRALL;                   // peak-signal-to-noise ratio for All
-        public float PSNRAlpha;                 // peak-signal-to-noise ratio for Alpha
-        public int block_count_intra4;          // number of intra4
-        public int block_count_intra16;         // number of intra16
-        public int block_count_skipped;         // number of skipped macroblocks
-        public int header_bytes;                // approximate number of bytes spent for header
-        public int mode_partition_0;            // approximate number of bytes spent for  mode-partition #0
-        public int residual_bytes_DC_segments0; // approximate number of bytes spent for DC coefficients for segment 0.
-        public int residual_bytes_AC_segments0; // approximate number of bytes spent for AC coefficients for segment 0.
-        public int residual_bytes_uv_segments0; // approximate number of bytes spent for uv coefficients for segment 0.
-        public int residual_bytes_DC_segments1; // approximate number of bytes spent for DC coefficients for segment 1.
-        public int residual_bytes_AC_segments1; // approximate number of bytes spent for AC coefficients for segment 1.
-        public int residual_bytes_uv_segments1; // approximate number of bytes spent for uv coefficients for segment 1.
-        public int residual_bytes_DC_segments2; // approximate number of bytes spent for DC coefficients for segment 2.
-        public int residual_bytes_AC_segments2; // approximate number of bytes spent for AC coefficients for segment 2.
-        public int residual_bytes_uv_segments2; // approximate number of bytes spent for uv coefficients for segment 2.
-        public int residual_bytes_DC_segments3; // approximate number of bytes spent for DC coefficients for segment 3.
-        public int residual_bytes_AC_segments3; // approximate number of bytes spent for AC coefficients for segment 3.
-        public int residual_bytes_uv_segments3; // approximate number of bytes spent for uv coefficients for segment 3.
-        public int segment_size_segments0;      // number of macroblocks in segments 0
-        public int segment_size_segments1;      // number of macroblocks in segments 1
-        public int segment_size_segments2;      // number of macroblocks in segments 2
-        public int segment_size_segments3;      // number of macroblocks in segments 3
-        public int segment_quant_segments0;     // quantizer values for segment 0
-        public int segment_quant_segments1;     // quantizer values for segment 1
-        public int segment_quant_segments2;     // quantizer values for segment 2
-        public int segment_quant_segments3;     // quantizer values for segment 3
-        public int segment_level_segments0;     // filtering strength for segment 0 [0..63]
-        public int segment_level_segments1;     // filtering strength for segment 1 [0..63]
-        public int segment_level_segments2;     // filtering strength for segment 2 [0..63]
-        public int segment_level_segments3;     // filtering strength for segment 3 [0..63]
-        public int alpha_data_size;             // size of the transparency data
-        public int layer_data_size;             // size of the enhancement layer data
+        /// <summary>Final size</summary>
+        public int coded_size;                 
+        /// <summary>Peak-signal-to-noise ratio for Y</summary>
+        public float PSNRY;                    
+        /// <summary>Peak-signal-to-noise ratio for U</summary>
+        public float PSNRU;
+        /// <summary>Peak-signal-to-noise ratio for V</summary>
+        public float PSNRV;
+        /// <summary>Peak-signal-to-noise ratio for All</summary>
+        public float PSNRALL;
+        /// <summary>Peak-signal-to-noise ratio for Alpha</summary>
+        public float PSNRAlpha;                
+        /// <summary>Number of intra4</summary>
+        public int block_count_intra4;
+        /// <summary>Number of intra16</summary>
+        public int block_count_intra16;
+        /// <summary>Number of skipped macroblocks</summary>
+        public int block_count_skipped;        
+        /// <summary>Approximate number of bytes spent for header</summary>
+        public int header_bytes;
+        /// <summary>Approximate number of bytes spent for  mode-partition #0</summary>
+        public int mode_partition_0;
+        /// <summary>Approximate number of bytes spent for DC coefficients for segment 0.</summary>
+        public int residual_bytes_DC_segments0;
+        /// <summary>Approximate number of bytes spent for AC coefficients for segment 0.</summary>
+        public int residual_bytes_AC_segments0;
+        /// <summary>Approximate number of bytes spent for uv coefficients for segment 0.</summary>
+        public int residual_bytes_uv_segments0;
+        /// <summary>Approximate number of bytes spent for DC coefficients for segment 1.</summary>
+        public int residual_bytes_DC_segments1;
+        /// <summary>Approximate number of bytes spent for AC coefficients for segment 1.</summary>
+        public int residual_bytes_AC_segments1;
+        /// <summary>Approximate number of bytes spent for uv coefficients for segment 1.</summary>
+        public int residual_bytes_uv_segments1;
+        /// <summary>Approximate number of bytes spent for DC coefficients for segment 2.</summary>
+        public int residual_bytes_DC_segments2;
+        /// <summary>Approximate number of bytes spent for AC coefficients for segment 2.</summary>
+        public int residual_bytes_AC_segments2;
+        /// <summary>Approximate number of bytes spent for uv coefficients for segment 2.</summary>
+        public int residual_bytes_uv_segments2;
+        /// <summary>Approximate number of bytes spent for DC coefficients for segment 3.</summary>
+        public int residual_bytes_DC_segments3;
+        /// <summary>Approximate number of bytes spent for AC coefficients for segment 3.</summary>
+        public int residual_bytes_AC_segments3;
+        /// <summary>Approximate number of bytes spent for uv coefficients for segment 3.</summary>
+        public int residual_bytes_uv_segments3;
+        /// <summary>Number of macroblocks in segments 0</summary>
+        public int segment_size_segments0; 
+        /// <summary>Number of macroblocks in segments 1</summary>
+        public int segment_size_segments1; 
+        /// <summary>Number of macroblocks in segments 2</summary>
+        public int segment_size_segments2; 
+        /// <summary>Number of macroblocks in segments 3</summary>
+        public int segment_size_segments3; 
+        /// <summary>Quantizer values for segment 0</summary>
+        public int segment_quant_segments0;
+        /// <summary>Quantizer values for segment 1</summary>
+        public int segment_quant_segments1;
+        /// <summary>Quantizer values for segment 2</summary>
+        public int segment_quant_segments2;
+        /// <summary>Quantizer values for segment 3</summary>
+        public int segment_quant_segments3;
+        /// <summary>Filtering strength for segment 0 [0..63]</summary>
+        public int segment_level_segments0;
+        /// <summary>Filtering strength for segment 1 [0..63]</summary>
+        public int segment_level_segments1;
+        /// <summary>Filtering strength for segment 2 [0..63]</summary>
+        public int segment_level_segments2;
+        /// <summary>Filtering strength for segment 3 [0..63]</summary>
+        public int segment_level_segments3;
+        /// <summary>Size of the transparency data</summary>
+        public int alpha_data_size;
+        /// <summary>Size of the enhancement layer data</summary>
+        public int layer_data_size;   
+
         // lossless encoder statistics
-        public Int32 lossless_features;         // bit0:predictor bit1:cross-color transform bit2:subtract-green bit3:color indexing
-        public int histogram_bits;              // number of precision bits of histogram
-        public int transform_bits;              // precision bits for transform
-        public int cache_bits;                  // number of bits for color cache lookup
-        public int palette_size;                // number of color in palette, if used
-        public int lossless_size;               // final lossless size
-        public int lossless_hdr_size;           // lossless header (transform, huffman etc) size
-        public int lossless_data_size;          // lossless image data size
-        private UInt32 pad1;                    // padding for later use
-        private UInt32 pad2;                    // padding for later use
+        /// <summary>bit0:predictor bit1:cross-color transform bit2:subtract-green bit3:color indexing</summary>
+        public Int32 lossless_features;
+        /// <summary>Number of precision bits of histogram</summary>
+        public int histogram_bits;     
+        /// <summary>Precision bits for transform</summary>
+        public int transform_bits;     
+        /// <summary>Number of bits for color cache lookup</summary>
+        public int cache_bits;         
+        /// <summary>Number of color in palette, if used</summary>
+        public int palette_size;       
+        /// <summary>Final lossless size</summary>
+        public int lossless_size;      
+        /// <summary>Lossless header (transform, huffman etc) size</summary>
+        public int lossless_hdr_size;  
+        /// <summary>Lossless image data size</summary>
+        public int lossless_data_size;
+        /// <summary>Padding for later use.</summary>
+        [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 2, ArraySubType = UnmanagedType.U4)]
+        private uint[] pad;
+    };
+
+    [StructLayoutAttribute(LayoutKind.Sequential)]
+    public struct WebPDecoderConfig
+    {
+        /// <summary>Immutable bitstream features (optional)</summary>
+        public WebPBitstreamFeatures input;
+        /// <summary>Output buffer (can point to external mem)</summary>
+        public WebPDecBuffer output;
+        /// <summary>Decoding options</summary>
+        public WebPDecoderOptions options;
+    }
+
+    /// <summary>Output buffer</summary>
+    [StructLayoutAttribute(LayoutKind.Sequential)]
+    public struct WebPDecBuffer
+    {
+        /// <summary>Colorspace.</summary>
+        public WEBP_CSP_MODE colorspace;
+        /// <summary>Width of image.</summary>
+        public int width;
+        /// <summary>Height of image.</summary>
+        public int height;
+        /// <summary>If non-zero, 'internal_memory' pointer is not used. If value is '2' or more, the external memory is considered 'slow' and multiple read/write will be avoided.</summary>
+        public int is_external_memory;
+        /// <summary>Output buffer parameters.</summary>
+        public RGBA_YUVA_Buffer u;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad1;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad2;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad3;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad4;
+        /// <summary>Internally allocated memory (only when is_external_memory is 0). Should not be used externally, but accessed via WebPRGBABuffer.</summary>
+        public IntPtr private_memory;
+    }
+
+    /// <summary>Union of buffer parameters</summary>
+    [StructLayoutAttribute(LayoutKind.Explicit)]
+    public struct RGBA_YUVA_Buffer
+    {
+        [FieldOffsetAttribute(0)]
+        public WebPRGBABuffer RGBA;
+
+        [FieldOffsetAttribute(0)]
+        public WebPYUVABuffer YUVA;
+    }
+
+    [StructLayoutAttribute(LayoutKind.Sequential)]
+    public struct WebPYUVABuffer
+    {
+        /// <summary>Pointer to luma samples</summary>
+        public IntPtr y;
+        /// <summary>Pointer to chroma U samples</summary>
+        public IntPtr u;
+        /// <summary>Pointer to chroma V samples</summary>
+        public IntPtr v;
+        /// <summary>Pointer to alpha samples</summary>
+        public IntPtr a;
+        /// <summary>luma stride</summary>
+        public int y_stride;
+        /// <summary>chroma U stride</summary>
+        public int u_stride;
+        /// <summary>chroma V stride</summary>
+        public int v_stride;
+        /// <summary>alpha stride</summary>
+        public int a_stride;
+        /// <summary>luma plane size</summary>
+        public UIntPtr y_size;
+        /// <summary>chroma plane U size</summary>
+        public UIntPtr u_size;
+        /// <summary>chroma plane V size</summary>
+        public UIntPtr v_size;
+        /// <summary>alpha plane size</summary>
+        public UIntPtr a_size;
+    }
+
+    /// <summary>Generic structure for describing the output sample buffer.</summary>
+    [StructLayoutAttribute(LayoutKind.Sequential)]
+    public struct WebPRGBABuffer
+    {
+        /// <summary>pointer to RGBA samples.</summary>
+        public IntPtr rgba;
+        /// <summary>stride in bytes from one scanline to the next.</summary>
+        public int stride;
+        /// <summary>total size of the rgba buffer.</summary>
+        public UIntPtr size;
+    }
+
+    /// <summary>Decoding options</summary>
+    [StructLayoutAttribute(LayoutKind.Sequential)]
+    public struct WebPDecoderOptions
+    {
+        /// <summary>if true, skip the in-loop filtering.</summary>
+        public int bypass_filtering;
+        /// <summary>if true, use faster pointwise upsampler.</summary>
+        public int no_fancy_upsampling;
+        /// <summary>if true, cropping is applied _first_</summary>
+        public int use_cropping;
+        /// <summary>left position for cropping. Will be snapped to even values.</summary>
+        public int crop_left;
+        /// <summary>top position for cropping. Will be snapped to even values.</summary>
+        public int crop_top;
+        /// <summary>width of the cropping area</summary>
+        public int crop_width;
+        /// <summary>height of the cropping area</summary>
+        public int crop_height;
+        /// <summary>if true, scaling is applied _afterward_</summary>
+        public int use_scaling;
+        /// <summary>final width</summary>
+        public int scaled_width;
+        /// <summary>final height</summary>
+        public int scaled_height;
+        /// <summary>if true, use multi-threaded decoding</summary>
+        public int use_threads;
+        /// <summary>dithering strength (0=Off, 100=full)</summary>
+        public int dithering_strength;
+        /// <summary>flip output vertically</summary>
+        public int flip;
+        /// <summary>alpha dithering strength in [0..100]</summary>
+        public int alpha_dithering_strength;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad1;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad2;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad3;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad4;
+        /// <summary>padding for later use.</summary>
+        private UInt32 pad5;
     };
     #endregion
 }
@@ -1339,18 +1789,6 @@ namespace WebPWrapper
 
     //////////////// For future implementation /////////////////
 /*
-
-public enum WebPImageHint
-{
-    /// <summary>
-    /// Default preset.
-    /// </summary>
-    WEBP_HINT_DEFAULT = 0,                  // default preset.
-    WEBP_HINT_PICTURE,                      // digital picture, like portrait, inner shot
-    WEBP_HINT_PHOTO,                        // outdoor photograph, with natural lighting
-    WEBP_HINT_GRAPH,                        // Discrete tone image (graph, map-tile etc).
-    WEBP_HINT_LAST                          // list terminator. always last.
-};
 // WebPMemoryWrite: a special WebPWriterFunction that writes to memory using
 // the following WebPMemoryWriter object (to be set as a custom_ptr).
 [StructLayoutAttribute(LayoutKind.Sequential)]
@@ -1371,100 +1809,32 @@ public static extern void WebPMemoryWriterClear(ref WebPMemoryWriter writer);
 //[DllImportAttribute(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
 //public static extern void WebPMemoryWriterInit(out WebPMemoryWriter writer);
 
-/// Return Type: int
-///param0: WebPDecoderConfig*
-///param1: int
-[DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
-public static extern bool WebPInitDecoderConfigInternal(out WebPDecoderConfig config, int WEBP_DECODER_ABI_VERSION);
-
-///param0: uint8_t*
-///param1: size_t->unsigned int
-///param2: WebPBitstreamFeatures*
-///param3: int
-[DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
-public static extern VP8StatusCode WebPGetFeaturesInternal(IntPtr dataIn, UInt32 data_size, out WebPBitstreamFeatures input, int WEBP_DECODER_ABI_VERSION);
-
-///data: uint8_t*
-///data_size: size_t->unsigned int
-///config: WebPDecoderConfig*
-[DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
-public static extern VP8StatusCode WebPDecode(IntPtr data, UInt32 data_size, ref WebPDecoderConfig config);
-
-[DllImport(clsWebP.LibwebpDLLName, CallingConvention = CallingConvention.Cdecl)]
-public static extern void WebPFreeDecBuffer(ref WebPDecBuffer output);
 
 [DllImportAttribute(clsWebP.LibwebpDLLName, EntryPoint = "WebPSafeFree", CallingConvention = CallingConvention.Cdecl)]
 public static extern void WebPSafeFree(IntPtr toDeallocate);
  
-[StructLayoutAttribute(LayoutKind.Sequential)]
-struct WebPDecoderConfig
-{
-    public WebPBitstreamFeatures input;
-    public WebPDecBuffer output;
-    public WebPDecoderOptions options;
-}
 
-// Output buffer
-[StructLayoutAttribute(LayoutKind.Sequential)]
-struct WebPDecBuffer
-{
-    public int colorspace;                  // Colorspace.
-    public int width;                       // Dimensions.
-    public int height;
-    public Int32 is_external_memory;        // If true, 'internal_memory' pointer is not used.
-    public IntPtr rgba; // pointer to RGBA samples
-    public int stride; // stride in bytes from one scanline to the next.
-    #if _WIN64
-        public UInt64 size; // total size of the *rgba buffer.
-    #else
-        public UInt32 size; // total size of the *rgba buffer.
-    #endif
-    public UInt32 pad1;                    // padding for later use
-    public UInt32 pad2;
-    public UInt32 pad3;
-    public UInt32 pad4;
-    public IntPtr private_memory; // Internally allocated memory (only when is_external_memory is false). Should not be used externally, but accessed via the buffer union.
-};
 
-[StructLayoutAttribute(LayoutKind.Sequential)]
-struct WebPDecoderOptions
-{
-    public int bypass_filtering;            // if true, skip the in-loop filtering
-    public int no_fancy_upsampling;         // if true, use faster pointwise upsampler
-    public int use_cropping;                // if true, cropping is applied _first_
-    public int crop_left;                   // top-left position for cropping. Will be snapped to even values.
-    public int crop_top;
-    public int crop_width;                  // dimension of the cropping area
-    public int crop_height;
-    public int use_scaling;                 // if true, scaling is applied _afterward_
-    public int scaled_width;                // final resolution
-    public int scaled_height;
-    public int use_threads;                 // if true, use multi-threaded decoding
-    public int dithering_strength;          // dithering strength (0=Off, 100=full)
-    public int flip;                        // flip output vertically
-    public int alpha_dithering_strength;    // alpha dithering strength in [0..100]
-    // Unused for now:
-    public int force_rotation;              // forced rotation (to be applied _last_)
-    public int no_enhancement;              // if true, discard enhancement layer
-    public UInt32 pad1;                     // padding for later use
-    public UInt32 pad2;
-    public UInt32 pad3;
-};
-
-public enum WEBP_CSP_MODE
-{
-    MODE_RGB = 0, MODE_RGBA = 1,
-    MODE_BGR = 2, MODE_BGRA = 3,
-    MODE_ARGB = 4, MODE_RGBA_4444 = 5,
-    MODE_RGB_565 = 6,
-    // RGB-premultiplied transparent modes (alpha value is preserved)
-    MODE_rgbA = 7,
-    MODE_bgrA = 8,
-    MODE_Argb = 9,
-    MODE_rgbA_4444 = 10,
-    // YUV modes must come after RGB ones.
-    MODE_YUV = 11, MODE_YUVA = 12, // yuv 4:2:0
-    MODE_LAST = 13
-};
+        /// Return Type: int
+        ///param0: WebPDecBuffer*
+        ///param1: int
+        public static int WebPInitDecBuffer(ref WebPDecBuffer webPDecBuffer)
+        {
+            switch (IntPtr.Size)
+            {
+                case 4:
+                    return WebPInitDecBufferInternal_x86(ref WebPDecBuffer webPDecBuffer, WEBP_DECODER_ABI_VERSION);
+                case 8:
+                    return WebPInitDecBufferInternal_x64(ref WebPDecBuffer webPDecBuffer, WEBP_DECODER_ABI_VERSION);
+                default:
+                    throw new InvalidOperationException("Invalid platform. Can not find proper function");
+            }
+        }
+        [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPInitDecBufferInternal")]
+        private static extern int WebPInitDecBufferInternal_x86(ref WebPDecBuffer webPDecBuffer, int WEBP_DECODER_ABI_VERSION);
+        [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPInitDecBufferInternal")]
+        private static extern int WebPInitDecBufferInternal_x64(ref WebPDecBuffer webPDecBuffer, int WEBP_DECODER_ABI_VERSION);
+        //[DllImportAttribute("__Internal", EntryPoint = "WebPInitDecBufferInternal")]
+        //public static extern int WebPInitDecBufferInternal(ref WebPDecBuffer param0, int param1);
 */
 
