@@ -1010,7 +1010,7 @@ namespace WebPWrapper
         /// <summary>The writer type for output compress data</summary>
         /// <param name="data">Data returned</param>
         /// <param name="data_size">Size of data returned</param>
-        /// <param name="picture">Picture struct</param>
+        /// <param name="wpic">Picture struct</param>
         /// <returns></returns>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int WebPMemoryWrite([InAttribute()] IntPtr data, UIntPtr data_size, ref WebPPicture wpic);
@@ -1171,10 +1171,10 @@ namespace WebPWrapper
         private static extern void WebPFreeDecBuffer_x64(ref WebPDecBuffer buffer);
 
         /// <summary>Lossy encoding images</summary>
-        /// <param name="rgb">Pointer to RGB image data</param>
+        /// <param name="bgr">Pointer to BGR image data</param>
         /// <param name="width">The range is limited currently from 1 to 16383</param>
         /// <param name="height">The range is limited currently from 1 to 16383</param>
-        /// <param name="output_stride">Specifies the distance between scanlines</param>
+        /// <param name="stride">Specifies the distance between scanlines</param>
         /// <param name="quality_factor">Ranges from 0 (lower quality) to 100 (highest quality). Controls the loss and quality during compression</param>
         /// <param name="output">output_buffer with WebP image</param>
         /// <returns>Size of WebP Image or 0 if an error occurred</returns>
@@ -1196,10 +1196,10 @@ namespace WebPWrapper
         private static extern int WebPEncodeBGR_x64([InAttribute()] IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output);
 
         /// <summary>Lossless encoding images pointed to by *data in WebP format</summary>
-        /// <param name="rgb">Pointer to RGB image data</param>
+        /// <param name="bgr">Pointer to BGR image data</param>
         /// <param name="width">The range is limited currently from 1 to 16383</param>
         /// <param name="height">The range is limited currently from 1 to 16383</param>
-        /// <param name="output_stride">Specifies the distance between scanlines</param>
+        /// <param name="stride">Specifies the distance between scanlines</param>
         /// <param name="output">output_buffer with WebP image</param>
         /// <returns>Size of WebP Image or 0 if an error occurred</returns>
         public static int WebPEncodeLosslessBGR(IntPtr bgr, int width, int height, int stride, out IntPtr output)
@@ -1263,7 +1263,7 @@ namespace WebPWrapper
         /// <param name="srcPicture">Picture to measure</param>
         /// <param name="refPicture">Reference picture</param>
         /// <param name="metric_type">0 = PSNR, 1 = SSIM, 2 = LSIM</param>
-        /// <param name="result">dB in the Y/U/V/Alpha/All order</param>
+        /// <param name="pResult">dB in the Y/U/V/Alpha/All order</param>
         /// <returns>False in case of error (src and ref don't have same dimension, ...)</returns>
         public static int WebPPictureDistortion(ref WebPPicture srcPicture, ref WebPPicture refPicture, int metric_type, IntPtr pResult)
         {
