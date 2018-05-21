@@ -3,7 +3,7 @@ Wrapper for libwebp in C#. The most complete wapper in pure managed C#.
 
 Exposes Simple Decoding API, Simple Encoding API, Advanced Encoding API (with stadistis of compresion), Get version library and WebPGetFeatures (info of any WebP file). In the future I´ll update for expose Advanced Decoding API.
 
-The wapper is in safe managed code in one class. No need external dll except libwebp_x86.dll and libwebp_x64.dll (included v6.0). The wrapper work in 32, 64 bit or ANY (auto swith to the apropiate library).
+The wapper is in safe managed code in one class. No need external dll except libwebp_x86.dll and libwebp_x64.dll (included v6.1). The wrapper work in 32, 64 bit or ANY (auto swith to the apropiate library).
 
 The code is full comented and include simple example for using the wrapper.
 ## Decompress Functions:
@@ -30,13 +30,20 @@ using (WebP webp = new WebP())
   this.pictureBox.Image = webp.Decode(rawWebP, decoderOptions);
 ```
 
-Get thumbnail with 200x150 pixels
+Get thumbnail with 200x150 pixels in fast/low quality mode
 ```C#
 using (WebP webp = new WebP())
-	this.pictureBox.Image = webp.Thumbnail(rawWebP, 200, 150);
+	this.pictureBox.Image = webp.GetThumbnailFast(rawWebP, 200, 150);
 ```
 
-## Compress Functions:			
+Get thumbnail with 200x150 pixels in slow/high quality mode
+```C#
+using (WebP webp = new WebP())
+	this.pictureBox.Image = webp.GetThumbnailQuality(rawWebP, 200, 150);
+```
+
+
+## Compress Functions:
 Save bitmap to WebP file
 ```C#
 Bitmap bmp = new Bitmap("test.jpg");
