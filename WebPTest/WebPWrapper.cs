@@ -5,7 +5,8 @@
 /// Bitmap Load(string pathFileName) - Load a WebP file in bitmap.
 /// Bitmap Decode(byte[] rawWebP) - Decode WebP data (rawWebP) to bitmap.
 /// Bitmap Decode(byte[] rawWebP, WebPDecoderOptions options) - Decode WebP data (rawWebP) to bitmap using 'options'.
-/// Bitmap Thumbnail(byte[] rawWebP, int width, int height) - Get a thumbnail from WebP data (rawWebP) with dimensions 'width x height'.
+/// Bitmap GetThumbnailFast(byte[] rawWebP, int width, int height) - Get a thumbnail from WebP data (rawWebP) with dimensions 'width x height'. Fast mode.
+/// Bitmap GetThumbnailQuality(byte[] rawWebP, int width, int height) - Fast get a thumbnail from WebP data (rawWebP) with dimensions 'width x height'. Quality mode.
 /// 
 /// Compress Functions:
 /// Save(Bitmap bmp, string pathFileName, int quality = 75) - Save bitmap with quality lost to WebP file. Opcionally select 'quality'.
@@ -184,13 +185,13 @@ namespace WebPWrapper
                     pinnedWebP.Free();
             }
         }
-        
-        /// <summary>Thumbnail from webP</summary>
+
+        /// <summary>Get Thumbnail from webP in mode faster/low quality</summary>
         /// <param name="rawWebP">The data to uncompress</param>
         /// <param name="width">Wanted width of thumbnail</param>
         /// <param name="height">Wanted height of thumbnail</param>
         /// <returns>Bitmap with the WebP thumbnail</returns>
-        public Bitmap Thumbnail(byte[] rawWebP, int width, int height)
+        public Bitmap GetThumbnailFast(byte[] rawWebP, int width, int height)
         {
             GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
             Bitmap bmp = null;
@@ -246,6 +247,66 @@ namespace WebPWrapper
             }
         }
 
+        /// <summary>Thumbnail from webP in mode slow/high quality</summary>
+        /// <param name="rawWebP">The data to uncompress</param>
+        /// <param name="width">Wanted width of thumbnail</param>
+        /// <param name="height">Wanted height of thumbnail</param>
+        /// <returns>Bitmap with the WebP thumbnail</returns>
+        public Bitmap GetThumbnailQuality(byte[] rawWebP, int width, int height)
+        {
+            GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
+            Bitmap bmp = null;
+            BitmapData bmpData = null;
+
+            try
+            {
+                WebPDecoderConfig config = new WebPDecoderConfig();
+                if (UnsafeNativeMethods.WebPInitDecoderConfig(ref config) == 0)
+                    throw new Exception("WebPInitDecoderConfig failed. Wrong version?");
+
+                // Set up decode options
+                config.options.bypass_filtering = 0;
+                config.options.no_fancy_upsampling = 0;
+                config.options.use_threads = 1;
+                config.options.use_scaling = 1;
+                config.options.scaled_width = width;
+                config.options.scaled_height = height;
+
+                // Create a BitmapData and Lock all pixels to be written
+                bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+                bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.WriteOnly, bmp.PixelFormat);
+
+                // Specify the output format
+                config.output.colorspace = WEBP_CSP_MODE.MODE_BGR;
+                config.output.u.RGBA.rgba = bmpData.Scan0;
+                config.output.u.RGBA.stride = bmpData.Stride;
+                config.output.u.RGBA.size = (UIntPtr)(bmp.Height * bmpData.Stride);
+                config.output.height = bmp.Height;
+                config.output.width = bmp.Width;
+                config.output.is_external_memory = 1;
+
+                // Decode
+                IntPtr ptrRawWebP = pinnedWebP.AddrOfPinnedObject();
+                VP8StatusCode result = UnsafeNativeMethods.WebPDecode(ptrRawWebP, rawWebP.Length, ref config);
+                if (result != VP8StatusCode.VP8_STATUS_OK)
+                    throw new Exception("Failed WebPDecode with error " + result);
+
+                UnsafeNativeMethods.WebPFreeDecBuffer(ref config.output);
+
+                return bmp;
+            }
+            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.Thumbnail"); }
+            finally
+            {
+                //Unlock the pixels
+                if (bmpData != null)
+                    bmp.UnlockBits(bmpData);
+
+                //Free memory
+                if (pinnedWebP.IsAllocated)
+                    pinnedWebP.Free();
+            }
+        }
         #endregion
 
         #region | Public Compress Functions |
@@ -339,7 +400,10 @@ namespace WebPWrapper
                 config.segments = 4;
                 config.partitions = 3;
                 config.thread_level = 1;
-                config.preprocessing = 4;
+                if (UnsafeNativeMethods.WebPGetDecoderVersion() > 1082)     //Old version don´t suport preprocessing 4
+                    config.preprocessing = 4;
+                else
+                    config.preprocessing = 3;
 
                 //Validate the config
                 if (UnsafeNativeMethods.WebPValidateConfig(ref config) != 1)
@@ -490,8 +554,16 @@ namespace WebPWrapper
                 //Set compresion parameters
                 if (UnsafeNativeMethods.WebPConfigInit(ref config, WebPPreset.WEBP_PRESET_DEFAULT, (speed + 1) * 10) == 0)
                     throw new Exception("Can´t config preset");
-                if (UnsafeNativeMethods.WebPConfigLosslessPreset(ref config, speed) == 0)
-                    throw new Exception("Can´t config lossless preset");
+
+                //Old version of dll not suport info and WebPConfigLosslessPreset
+                if (UnsafeNativeMethods.WebPGetDecoderVersion() > 1082)
+                {
+                    if (UnsafeNativeMethods.WebPConfigLosslessPreset(ref config, speed) == 0)
+                        throw new Exception("Can´t config lossless preset");
+                }
+                else
+                    info = false;
+
                 config.pass = speed + 1;
                 //config.image_hint = WebPImageHint.WEBP_HINT_PICTURE;
 
@@ -591,6 +663,10 @@ namespace WebPWrapper
 
             try
             {
+                //test dll version
+                if (UnsafeNativeMethods.WebPGetDecoderVersion() <= 1082)
+                    throw new Exception("This dll version not suport EncodeNearLossless");
+
                 //Inicialize config struct
                 WebPConfig config = new WebPConfig();
 

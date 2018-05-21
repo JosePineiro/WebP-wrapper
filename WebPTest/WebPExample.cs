@@ -41,7 +41,9 @@ namespace WebPTest
         #endregion
 
         #region << Events >>
-        /// <summary>Test for load from file function</summary>
+        /// <summary>
+        /// Test for load from file function
+        /// </summary>
         private void buttonLoad_Click(object sender, System.EventArgs e)
         {
             try
@@ -72,7 +74,9 @@ namespace WebPTest
             }
         }
 
-        /// <summary>Test for load thumbnail function</summary>
+        /// <summary>
+        /// Test for load thumbnail function
+        /// </summary>
         private void buttonThumbnail_Click(object sender, EventArgs e)
         {
             try
@@ -87,7 +91,7 @@ namespace WebPTest
 
                         byte[] rawWebP = File.ReadAllBytes(pathFileName);
                         using (WebP webp = new WebP())
-                            this.pictureBox.Image = webp.Thumbnail(rawWebP, 200, 150);
+                            this.pictureBox.Image = webp.GetThumbnailFast(rawWebP, 200, 150);
                     }
                 }
             }
@@ -97,7 +101,9 @@ namespace WebPTest
             }
         }
 
-        /// <summary>Test for advanced decode function</summary>
+        /// <summary>
+        /// Test for advanced decode function
+        /// </summary>
         private void buttonCropFlip_Click(object sender, EventArgs e)
         {
             try
@@ -130,6 +136,9 @@ namespace WebPTest
             }
         }
 
+        /// <summary>
+        /// Test encode functions
+        /// </summary>
         private void buttonSave_Click(object sender, System.EventArgs e)
         {
             byte[] rawWebP;
@@ -147,28 +156,28 @@ namespace WebPTest
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeLossy(bmp, 75);
                 File.WriteAllBytes(lossyFileName, rawWebP);
-                MessageBox.Show("Made " + lossyFileName);
+                MessageBox.Show("Made " + lossyFileName, "Simple lossy");
 
                 //Test encode lossly mode in memory with quality 75 and speed 9
                 string advanceLossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AdvanceLossy.webp");
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeLossy(bmp, 71, 9, true);
                 File.WriteAllBytes(advanceLossyFileName, rawWebP);
-                MessageBox.Show("Made " + advanceLossyFileName);
+                MessageBox.Show("Made " + advanceLossyFileName, "Advance lossy");
                 
                 //Test simple encode lossless mode in memory
                 string simpleLosslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SimpleLossless.webp");
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeLossless(bmp);
                 File.WriteAllBytes(simpleLosslessFileName, rawWebP);
-                MessageBox.Show("Made " + simpleLosslessFileName);
+                MessageBox.Show("Made " + simpleLosslessFileName, "Simple lossless");
                 
                 //Test advance encode lossless mode in memory with speed 9
                 string losslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AdvanceLossless.webp");
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeLossless(bmp, 9, true);
                 File.WriteAllBytes(losslessFileName, rawWebP);
-                MessageBox.Show("Made " + losslessFileName);
+                MessageBox.Show("Made " + losslessFileName, "Advance lossless");
                 
                 //Test encode near lossless mode in memory with quality 40 and speed 9
                 // quality 100: No-loss (bit-stream same as -lossless).
@@ -180,7 +189,7 @@ namespace WebPTest
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeNearLossless(bmp, 40, 9, true);
                 File.WriteAllBytes(nearLosslessFileName, rawWebP);
-                MessageBox.Show("Made " + nearLosslessFileName);
+                MessageBox.Show("Made " + nearLosslessFileName, "Near lossless");
 
                 MessageBox.Show("End of Test");
             }
@@ -190,44 +199,57 @@ namespace WebPTest
             }
         }
 
+        /// <summary>
+        /// Test GetPictureDistortion function
+        /// </summary>
         private void buttonMeasure_Click(object sender, EventArgs e)
         {
-            if (this.pictureBox.Image == null)
-                MessageBox.Show("Please, load an reference image first");
-
-            using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+            try
             {
-                openFileDialog.Filter = "WebP images (*.webp)|*.webp";
-                openFileDialog.FileName = "";
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                if (this.pictureBox.Image == null)
+                    MessageBox.Show("Please, load an reference image first");
+
+                using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
                 {
-                    Bitmap source;
-                    Bitmap reference;
-                    float[] result;
+                    openFileDialog.Filter = "WebP images (*.webp)|*.webp";
+                    openFileDialog.FileName = "";
+                    if (openFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        Bitmap source;
+                        Bitmap reference;
+                        float[] result;
 
-                    //Load Bitmaps
-                    source = (Bitmap)this.pictureBox.Image;
-                    using (WebP webp = new WebP())
-                        reference = webp.Load(openFileDialog.FileName);
+                        //Load Bitmaps
+                        source = (Bitmap)this.pictureBox.Image;
+                        using (WebP webp = new WebP())
+                            reference = webp.Load(openFileDialog.FileName);
 
-                    //Measure PSNR
-                    using (WebP webp = new WebP())
-                        result = webp.GetPictureDistortion(source, reference, 0);
-                    MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "PSNR");
+                        //Measure PSNR
+                        using (WebP webp = new WebP())
+                            result = webp.GetPictureDistortion(source, reference, 0);
+                        MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "PSNR");
 
-                    //Measure SSIM
-                    using (WebP webp = new WebP())
-                        result = webp.GetPictureDistortion(source, reference, 1);
-                    MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "SSIM");
+                        //Measure SSIM
+                        using (WebP webp = new WebP())
+                            result = webp.GetPictureDistortion(source, reference, 1);
+                        MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "SSIM");
 
-                    //Measure LSIM
-                    using (WebP webp = new WebP())
-                        result = webp.GetPictureDistortion(source, reference, 2);
-                    MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "LSIM");
+                        //Measure LSIM
+                        using (WebP webp = new WebP())
+                            result = webp.GetPictureDistortion(source, reference, 2);
+                        MessageBox.Show("Red: " + result[0] + "dB.\nGreen: " + result[1] + "dB.\nBlue: " + result[2] + "dB.\nAlpha: " + result[3] + "dB.\nAll: " + result[4] + "dB.", "LSIM");
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\r\nIn WebPExample.buttonMeasure_Click", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
+        /// <summary>
+        /// Test GetInfo function
+        /// </summary>
         private void buttonInfo_Click(object sender, EventArgs e)
         {
             int width;
