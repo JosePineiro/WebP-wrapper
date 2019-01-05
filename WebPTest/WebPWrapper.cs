@@ -94,6 +94,7 @@ namespace WebPWrapper
 
         /// <summary>Decode a WebP image</summary>
         /// <param name="rawWebP">the data to uncompress</param>
+        /// <param name="options">Options for advanced decode</param>
         /// <returns>Bitmap with the WebP image</returns>
         public Bitmap Decode(byte[] rawWebP, WebPDecoderOptions options)
         {
@@ -401,7 +402,10 @@ namespace WebPWrapper
                 config.partitions = 3;
                 config.thread_level = 1;
                 if (UnsafeNativeMethods.WebPGetDecoderVersion() > 1082)     //Old version don´t suport preprocessing 4
+                {
                     config.preprocessing = 4;
+                    config.use_sharp_yuv = 1;
+                }
                 else
                     config.preprocessing = 3;
 
@@ -562,8 +566,14 @@ namespace WebPWrapper
                         throw new Exception("Can´t config lossless preset");
                 }
                 else
+                {
                     info = false;
-
+                    config.lossless = 1;
+                    config.method = speed;
+                    if (config.method > 6)
+                        config.method = 6;
+                    config.quality = (speed + 1) * 10;
+                }
                 config.pass = speed + 1;
                 //config.image_hint = WebPImageHint.WEBP_HINT_PICTURE;
 
@@ -1534,8 +1544,8 @@ namespace WebPWrapper
         /// <summary>Number of entropy-analysis passes (in [1..10]).</summary>
         public int pass;             
         /// <summary>If true, export the compressed picture back. In-loop filtering is not applied.</summary>
-        public int show_compressed;  
-        /// <summary>Preprocessing filter (0=none, 1=segment-smooth)</summary>
+        public int show_compressed;
+        /// <summary>Preprocessing filter (0=none, 1=segment-smooth, 2=pseudo-random dithering)</summary>
         public int preprocessing;    
         /// <summary>Log2(number of token partitions) in [0..3] Default is set to 0 for easier progressive decoding.</summary>
         public int partitions;       
@@ -1546,16 +1556,17 @@ namespace WebPWrapper
         /// <summary>If non-zero, try and use multi-threaded encoding.</summary>
         public int thread_level;       
         /// <summary>If set, reduce memory usage (but increase CPU use).</summary>
-        public int low_memory;         
-        /// <summary>Near lossless encoding [0 = off(default) .. 100]. This feature is experimental.</summary>
+        public int low_memory;
+        /// <summary>Near lossless encoding [0 = max loss .. 100 = off (default)].</summary>
         public int near_lossless;      
         /// <summary>If non-zero, preserve the exact RGB values under transparent area. Otherwise, discard this invisible RGB information for better compression. The default value is 0.</summary>
         public int exact;
         /// <summary>Reserved for future lossless feature</summary>
         public int delta_palettization;
+        /// <summary>if needed, use sharp (and slow) RGB->YUV conversion</summary>
+        public int use_sharp_yuv;
         /// <summary>Padding for later use.</summary>
         private int pad1;
-        /// <summary>Padding for later use.</summary>
         private int pad2;
     };
 
