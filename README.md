@@ -3,7 +3,7 @@ Wrapper for libwebp in C#. The most complete wrapper in pure managed C#.
 
 Exposes Simple Decoding API and Encoding API, Advanced  Decoding and Encoding API (with stadistis of compresion), Get version library and WebPGetFeatures (info of any WebP file). Exposed get PSNR, SSIM or LSIM distortion metrics.
 
-The wrapper is in safe managed code in one class. No need external dll except libwebp_x86.dll(included v0.4.4) and libwebp_x64.dll (included v1.0.1). The wrapper work in 32, 64 bit or ANY (auto swith to the apropiate library).
+The wrapper is in safe managed code in one class. No need external dll except libwebp_x86.dll(included v0.4.4) and libwebp_x64.dll (included v1.0.3). The wrapper work in 32, 64 bit or ANY (auto swith to the apropiate library).
 
 The code is comented and include simple example for using the wrapper.
 
