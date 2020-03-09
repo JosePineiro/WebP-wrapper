@@ -44,7 +44,7 @@ namespace WebPTest
         /// <summary>
         /// Test for load from file function
         /// </summary>
-        private void buttonLoad_Click(object sender, System.EventArgs e)
+        private void ButtonLoad_Click(object sender, System.EventArgs e)
         {
             try
             {
@@ -77,7 +77,7 @@ namespace WebPTest
         /// <summary>
         /// Test for load thumbnail function
         /// </summary>
-        private void buttonThumbnail_Click(object sender, EventArgs e)
+        private void ButtonThumbnail_Click(object sender, EventArgs e)
         {
             try
             {
@@ -104,7 +104,7 @@ namespace WebPTest
         /// <summary>
         /// Test for advanced decode function
         /// </summary>
-        private void buttonCropFlip_Click(object sender, EventArgs e)
+        private void ButtonCropFlip_Click(object sender, EventArgs e)
         {
             try
             {
@@ -139,7 +139,7 @@ namespace WebPTest
         /// <summary>
         /// Test encode functions
         /// </summary>
-        private void buttonSave_Click(object sender, System.EventArgs e)
+        private void ButtonSave_Click(object sender, System.EventArgs e)
         {
             byte[] rawWebP;
 
@@ -202,7 +202,7 @@ namespace WebPTest
         /// <summary>
         /// Test GetPictureDistortion function
         /// </summary>
-        private void buttonMeasure_Click(object sender, EventArgs e)
+        private void ButtonMeasure_Click(object sender, EventArgs e)
         {
             try
             {
@@ -250,7 +250,7 @@ namespace WebPTest
         /// <summary>
         /// Test GetInfo function
         /// </summary>
-        private void buttonInfo_Click(object sender, EventArgs e)
+        private void ButtonInfo_Click(object sender, EventArgs e)
         {
             int width;
             int height;

@@ -33,6 +33,7 @@ namespace WebPWrapper
 {
     public sealed class WebP : IDisposable
     {
+        private const int WEBP_MAX_DIMENSION = 16383;
         #region | Public Decompress Functions |
         /// <summary>Read a WebP file</summary>
         /// <param name="pathFileName">WebP file to load</param>
@@ -336,17 +337,29 @@ namespace WebPWrapper
         /// <returns>Compressed data</returns>
         public byte[] EncodeLossy(Bitmap bmp, int quality = 75)
         {
+            //test bmp
+            if (bmp.Width == 0 || bmp.Height == 0)
+                throw new ArgumentException("Bitmap contains no data.", "bmp");
+            if (bmp.Width > WEBP_MAX_DIMENSION || bmp.Height > WEBP_MAX_DIMENSION)
+                throw new NotSupportedException("Bitmap's dimension is too large. Max is " + WEBP_MAX_DIMENSION + "x" + WEBP_MAX_DIMENSION + " pixels.");
+            if (bmp.PixelFormat != PixelFormat.Format24bppRgb && bmp.PixelFormat != PixelFormat.Format32bppArgb)
+                throw new NotSupportedException("Only support Format24bppRgb and Format32bppArgb pixelFormat.");
+
             BitmapData bmpData = null;
             IntPtr unmanagedData = IntPtr.Zero;
             byte[] rawWebP = null;
+            int size;
 
             try
             {
                 //Get bmp data
-                bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+                bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, bmp.PixelFormat);
 
                 //Compress the bmp data
-                int size = UnsafeNativeMethods.WebPEncodeBGR(bmpData.Scan0, bmp.Width, bmp.Height, bmpData.Stride, quality, out unmanagedData);
+                if (bmp.PixelFormat == PixelFormat.Format24bppRgb)
+                    size = UnsafeNativeMethods.WebPEncodeBGR(bmpData.Scan0, bmp.Width, bmp.Height, bmpData.Stride, quality, out unmanagedData);
+                else
+                    size = UnsafeNativeMethods.WebPEncodeBGRA(bmpData.Scan0, bmp.Width, bmp.Height, bmpData.Stride, quality, out unmanagedData);
                 if (size == 0)
                     throw new Exception("Can´t encode WebP");
 
@@ -376,6 +389,14 @@ namespace WebPWrapper
         /// <returns>Compressed data</returns>
         public byte[] EncodeLossy(Bitmap bmp, int quality, int speed, bool info = false)
         {
+            //test bmp
+            if (bmp.Width == 0 || bmp.Height == 0)
+                throw new ArgumentException("Bitmap contains no data.", "bmp");
+            if (bmp.Width > WEBP_MAX_DIMENSION || bmp.Height > WEBP_MAX_DIMENSION)
+                throw new NotSupportedException("Bitmap's dimension is too large. Max is " + WEBP_MAX_DIMENSION + "x" + WEBP_MAX_DIMENSION + " pixels.");
+            if (bmp.PixelFormat != PixelFormat.Format24bppRgb)
+                throw new NotSupportedException("Only support Format24bppRgb pixelFormat.");
+
             byte[] rawWebP = null;
             WebPPicture wpic = new WebPPicture();
             BitmapData bmpData = null;
@@ -506,6 +527,14 @@ namespace WebPWrapper
         /// <returns>Compressed data</returns>
         public byte[] EncodeLossless(Bitmap bmp)
         {
+            //test bmp
+            if (bmp.Width == 0 || bmp.Height == 0)
+                throw new ArgumentException("Bitmap contains no data.", "bmp");
+            if (bmp.Width > WEBP_MAX_DIMENSION || bmp.Height > WEBP_MAX_DIMENSION)
+                throw new NotSupportedException("Bitmap's dimension is too large. Max is " + WEBP_MAX_DIMENSION + "x" + WEBP_MAX_DIMENSION + " pixels.");
+            if (bmp.PixelFormat != PixelFormat.Format24bppRgb && bmp.PixelFormat != PixelFormat.Format32bppArgb)
+                throw new NotSupportedException("Only support Format24bppRgb and Format32bppArgb pixelFormat.");
+
             BitmapData bmpData = null;
             IntPtr unmanagedData = IntPtr.Zero;
             byte[] rawWebP = null;
@@ -516,7 +545,11 @@ namespace WebPWrapper
                 bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
 
                 //Compress the bmp data
-                int size = UnsafeNativeMethods.WebPEncodeLosslessBGR(bmpData.Scan0, bmp.Width, bmp.Height, bmpData.Stride, out unmanagedData);
+                int size;
+                if (bmp.PixelFormat == PixelFormat.Format24bppRgb)
+                    size = UnsafeNativeMethods.WebPEncodeLosslessBGR(bmpData.Scan0, bmp.Width, bmp.Height, bmpData.Stride, out unmanagedData);
+                else
+                    size = UnsafeNativeMethods.WebPEncodeLosslessBGRA(bmpData.Scan0, bmp.Width, bmp.Height, bmpData.Stride, out unmanagedData);
 
                 //Copy image compress data to output array
                 rawWebP = new byte[size];
@@ -543,6 +576,13 @@ namespace WebPWrapper
         /// <returns>Compressed data</returns>
         public byte[] EncodeLossless(Bitmap bmp, int speed, bool info = false)
         {
+            //test bmp
+            if (bmp.Width == 0 || bmp.Height == 0)
+                throw new ArgumentException("Bitmap contains no data.", "bmp");
+            if (bmp.Width > WEBP_MAX_DIMENSION || bmp.Height > WEBP_MAX_DIMENSION)
+                throw new NotSupportedException("Bitmap's dimension is too large. Max is " + WEBP_MAX_DIMENSION + "x" + WEBP_MAX_DIMENSION + " pixels.");
+            if (bmp.PixelFormat != PixelFormat.Format24bppRgb)
+                throw new NotSupportedException("Only support Format24bppRgb pixelFormat.");
 
             byte[] rawWebP = null;
             WebPPicture wpic = new WebPPicture();
@@ -665,6 +705,14 @@ namespace WebPWrapper
         /// <returns>Compress data</returns>
         public byte[] EncodeNearLossless(Bitmap bmp, int quality, int speed = 9, bool info = false)
         {
+            //test bmp
+            if (bmp.Width == 0 || bmp.Height == 0)
+                throw new ArgumentException("Bitmap contains no data.", "bmp");
+            if (bmp.Width > WEBP_MAX_DIMENSION || bmp.Height > WEBP_MAX_DIMENSION)
+                throw new NotSupportedException("Bitmap's dimension is too large. Max is " + WEBP_MAX_DIMENSION + "x" + WEBP_MAX_DIMENSION + " pixels.");
+            if (bmp.PixelFormat != PixelFormat.Format24bppRgb)
+                throw new NotSupportedException("Only support Format24bppRgb pixelFormat.");
+
             byte[] rawWebP = null;
             WebPPicture wpic = new WebPPicture();
             BitmapData bmpData = null;
@@ -715,9 +763,11 @@ namespace WebPWrapper
                 }
 
                 // Set up a byte-writing method (write-to-memory, in this case)
-                webpMemory = new MemoryWriter();
-                webpMemory.data = new byte[bmp.Width * bmp.Height * 24];
-                webpMemory.size = 0;
+                webpMemory = new MemoryWriter
+                {
+                    data = new byte[bmp.Width * bmp.Height * 24],
+                    size = 0
+                };
                 UnsafeNativeMethods.OnCallback = new UnsafeNativeMethods.WebPMemoryWrite(MyWriter);
                 wpic.writer = Marshal.GetFunctionPointerForDelegate(UnsafeNativeMethods.OnCallback);
 
@@ -1281,6 +1331,31 @@ namespace WebPWrapper
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeBGR")]
         private static extern int WebPEncodeBGR_x64([InAttribute()] IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output);
 
+        /// <summary>Lossy encoding images</summary>
+        /// <param name="bgr">Pointer to BGRA image data</param>
+        /// <param name="width">The range is limited currently from 1 to 16383</param>
+        /// <param name="height">The range is limited currently from 1 to 16383</param>
+        /// <param name="stride">Specifies the distance between scanlines</param>
+        /// <param name="quality_factor">Ranges from 0 (lower quality) to 100 (highest quality). Controls the loss and quality during compression</param>
+        /// <param name="output">output_buffer with WebP image</param>
+        /// <returns>Size of WebP Image or 0 if an error occurred</returns>
+        public static int WebPEncodeBGRA(IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output)
+        {
+            switch (IntPtr.Size)
+            {
+                case 4:
+                    return WebPEncodeBGRA_x86(bgr, width, height, stride, quality_factor, out output);
+                case 8:
+                    return WebPEncodeBGRA_x64(bgr, width, height, stride, quality_factor, out output);
+                default:
+                    throw new InvalidOperationException("Invalid platform. Can not find proper function");
+            }
+        }
+        [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeBGRA")]
+        private static extern int WebPEncodeBGRA_x86([InAttribute()] IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output);
+        [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeBGRA")]
+        private static extern int WebPEncodeBGRA_x64([InAttribute()] IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output);
+
         /// <summary>Lossless encoding images pointed to by *data in WebP format</summary>
         /// <param name="bgr">Pointer to BGR image data</param>
         /// <param name="width">The range is limited currently from 1 to 16383</param>
@@ -1304,6 +1379,30 @@ namespace WebPWrapper
         private static extern int WebPEncodeLosslessBGR_x86([InAttribute()] IntPtr bgr, int width, int height, int stride, out IntPtr output);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeLosslessBGR")]
         private static extern int WebPEncodeLosslessBGR_x64([InAttribute()] IntPtr bgr, int width, int height, int stride, out IntPtr output);
+
+        /// <summary>Lossless encoding images pointed to by *data in WebP format</summary>
+        /// <param name="bgr">Pointer to BGR image data</param>
+        /// <param name="width">The range is limited currently from 1 to 16383</param>
+        /// <param name="height">The range is limited currently from 1 to 16383</param>
+        /// <param name="stride">Specifies the distance between scanlines</param>
+        /// <param name="output">output_buffer with WebP image</param>
+        /// <returns>Size of WebP Image or 0 if an error occurred</returns>
+        public static int WebPEncodeLosslessBGRA(IntPtr bgr, int width, int height, int stride, out IntPtr output)
+        {
+            switch (IntPtr.Size)
+            {
+                case 4:
+                    return WebPEncodeLosslessBGRA_x86(bgr, width, height, stride, out output);
+                case 8:
+                    return WebPEncodeLosslessBGRA_x64(bgr, width, height, stride, out output);
+                default:
+                    throw new InvalidOperationException("Invalid platform. Can not find proper function");
+            }
+        }
+        [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeLosslessBGRA")]
+        private static extern int WebPEncodeLosslessBGRA_x86([InAttribute()] IntPtr bgr, int width, int height, int stride, out IntPtr output);
+        [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPEncodeLosslessBGRA")]
+        private static extern int WebPEncodeLosslessBGRA_x64([InAttribute()] IntPtr bgr, int width, int height, int stride, out IntPtr output);
 
         /// <summary>Releases memory returned by the WebPEncode</summary>
         /// <param name="p">Pointer to memory</param>
@@ -1424,6 +1523,7 @@ namespace WebPWrapper
         VP8_STATUS_OK = 0,
         /// <summary>Memory error allocating objects.</summary>
         VP8_STATUS_OUT_OF_MEMORY,
+        /// <summary>Configuration is invalid.</summary>
         VP8_STATUS_INVALID_PARAM,
         VP8_STATUS_BITSTREAM_ERROR,
         /// <summary>Configuration is invalid.</summary>
@@ -1504,7 +1604,7 @@ namespace WebPWrapper
         public int format;
         /// <summary>Padding for later use.</summary>
         [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 5, ArraySubType = UnmanagedType.U4)]
-        private uint[] pad;
+        private readonly uint[] pad;
     };
 
     /// <summary>Compression parameters.</summary>
@@ -1566,13 +1666,13 @@ namespace WebPWrapper
         /// <summary>if needed, use sharp (and slow) RGB->YUV conversion</summary>
         public int use_sharp_yuv;
         /// <summary>Padding for later use.</summary>
-        private int pad1;
-        private int pad2;
+        private readonly int pad1;
+        private readonly int pad2;
     };
 
     /// <summary>Main exchange structure (input samples, output bytes, statistics)</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPPicture
+    public struct WebPPicture: IDisposable
     {
         /// <summary>Main flag for encoder selecting between ARGB or YUV input. Recommended to use ARGB input (*argb, argb_stride) for lossless, and YUV input (*y, *u, *v, etc.) for lossy</summary>
         public int use_argb;
@@ -1598,14 +1698,14 @@ namespace WebPWrapper
         public int a_stride; 
         /// <summary>Padding for later use.</summary>
         [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 2, ArraySubType = UnmanagedType.U4)]
-        private uint[] pad1;
+        private readonly uint[] pad1;
         /// <summary>Pointer to argb (32 bit) plane.</summary>
         public IntPtr argb;    
         /// <summary>This is stride in pixels units, not bytes.</summary>
         public int argb_stride;
         /// <summary>Padding for later use.</summary>
         [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 3, ArraySubType = UnmanagedType.U4)]
-        private uint[] pad2;
+        private readonly uint[] pad2;
         /// <summary>Byte-emission hook, to store compressed bytes as they are ready.</summary>
         public IntPtr writer;  
         /// <summary>Can be used by the writer.</summary>
@@ -1625,14 +1725,19 @@ namespace WebPWrapper
         public IntPtr user_data;  
         /// <summary>Padding for later use.</summary>
         [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 13, ArraySubType = UnmanagedType.U4)]
-        private uint[] pad3;
+        private readonly uint[] pad3;
         /// <summary>Row chunk of memory for yuva planes</summary>
-        private IntPtr memory_;     
+        private readonly IntPtr memory_;     
         /// <summary>row chunk of memory for argb planes</summary>
-        private IntPtr memory_argb_;
+        private readonly IntPtr memory_argb_;
         /// <summary>Padding for later use.</summary>
         [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 2, ArraySubType = UnmanagedType.U4)]
         private uint[] pad4;
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
     };
 
     /// <summary>Structure for storing auxiliary statistics (mostly for lossy encoding).</summary>
@@ -1733,7 +1838,7 @@ namespace WebPWrapper
         public int lossless_data_size;
         /// <summary>Padding for later use.</summary>
         [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 2, ArraySubType = UnmanagedType.U4)]
-        private uint[] pad;
+        private readonly uint[] pad;
     };
 
     [StructLayoutAttribute(LayoutKind.Sequential)]
@@ -1762,13 +1867,13 @@ namespace WebPWrapper
         /// <summary>Output buffer parameters.</summary>
         public RGBA_YUVA_Buffer u;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad1;
+        private readonly UInt32 pad1;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad2;
+        private readonly UInt32 pad2;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad3;
+        private readonly UInt32 pad3;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad4;
+        private readonly UInt32 pad4;
         /// <summary>Internally allocated memory (only when is_external_memory is 0). Should not be used externally, but accessed via WebPRGBABuffer.</summary>
         public IntPtr private_memory;
     }
@@ -1858,15 +1963,15 @@ namespace WebPWrapper
         /// <summary>alpha dithering strength in [0..100]</summary>
         public int alpha_dithering_strength;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad1;
+        private readonly UInt32 pad1;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad2;
+        private readonly UInt32 pad2;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad3;
+        private readonly UInt32 pad3;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad4;
+        private readonly UInt32 pad4;
         /// <summary>padding for later use.</summary>
-        private UInt32 pad5;
+        private readonly UInt32 pad5;
     };
     #endregion
 }
