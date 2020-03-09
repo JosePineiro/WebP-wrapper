@@ -59,63 +59,63 @@
             this.buttonLoad.TabIndex = 1;
             this.buttonLoad.Text = "Load image";
             this.buttonLoad.UseVisualStyleBackColor = true;
-            this.buttonLoad.Click += new System.EventHandler(this.buttonLoad_Click);
+            this.buttonLoad.Click += new System.EventHandler(this.ButtonLoad_Click);
             // 
             // buttonSave
             // 
             this.buttonSave.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.buttonSave.Enabled = false;
-            this.buttonSave.Location = new System.Drawing.Point(459, 496);
+            this.buttonSave.Location = new System.Drawing.Point(99, 496);
             this.buttonSave.Name = "buttonSave";
             this.buttonSave.Size = new System.Drawing.Size(81, 30);
             this.buttonSave.TabIndex = 2;
             this.buttonSave.Text = "Save WEBP";
             this.buttonSave.UseVisualStyleBackColor = true;
-            this.buttonSave.Click += new System.EventHandler(this.buttonSave_Click);
+            this.buttonSave.Click += new System.EventHandler(this.ButtonSave_Click);
             // 
             // buttonInfo
             // 
             this.buttonInfo.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonInfo.Location = new System.Drawing.Point(273, 496);
+            this.buttonInfo.Location = new System.Drawing.Point(493, 496);
             this.buttonInfo.Name = "buttonInfo";
             this.buttonInfo.Size = new System.Drawing.Size(81, 30);
             this.buttonInfo.TabIndex = 3;
             this.buttonInfo.Text = "Info WEBP";
             this.buttonInfo.UseVisualStyleBackColor = true;
-            this.buttonInfo.Click += new System.EventHandler(this.buttonInfo_Click);
+            this.buttonInfo.Click += new System.EventHandler(this.ButtonInfo_Click);
             // 
             // buttonMeasure
             // 
             this.buttonMeasure.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonMeasure.Location = new System.Drawing.Point(360, 496);
+            this.buttonMeasure.Location = new System.Drawing.Point(394, 496);
             this.buttonMeasure.Name = "buttonMeasure";
             this.buttonMeasure.Size = new System.Drawing.Size(93, 30);
             this.buttonMeasure.TabIndex = 4;
             this.buttonMeasure.Text = "Measure WEBP";
             this.buttonMeasure.UseVisualStyleBackColor = true;
-            this.buttonMeasure.Click += new System.EventHandler(this.buttonMeasure_Click);
+            this.buttonMeasure.Click += new System.EventHandler(this.ButtonMeasure_Click);
             // 
             // buttonThumbnail
             // 
             this.buttonThumbnail.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonThumbnail.Location = new System.Drawing.Point(99, 496);
+            this.buttonThumbnail.Location = new System.Drawing.Point(288, 496);
             this.buttonThumbnail.Name = "buttonThumbnail";
-            this.buttonThumbnail.Size = new System.Drawing.Size(81, 30);
+            this.buttonThumbnail.Size = new System.Drawing.Size(100, 30);
             this.buttonThumbnail.TabIndex = 5;
-            this.buttonThumbnail.Text = "Thumbnail";
+            this.buttonThumbnail.Text = "Load Thumbnail";
             this.buttonThumbnail.UseVisualStyleBackColor = true;
-            this.buttonThumbnail.Click += new System.EventHandler(this.buttonThumbnail_Click);
+            this.buttonThumbnail.Click += new System.EventHandler(this.ButtonThumbnail_Click);
             // 
             // buttonCropFlip
             // 
             this.buttonCropFlip.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.buttonCropFlip.Location = new System.Drawing.Point(186, 496);
             this.buttonCropFlip.Name = "buttonCropFlip";
-            this.buttonCropFlip.Size = new System.Drawing.Size(81, 30);
+            this.buttonCropFlip.Size = new System.Drawing.Size(96, 30);
             this.buttonCropFlip.TabIndex = 6;
-            this.buttonCropFlip.Text = "Crop & flip";
+            this.buttonCropFlip.Text = "Load (Crop && flip)";
             this.buttonCropFlip.UseVisualStyleBackColor = true;
-            this.buttonCropFlip.Click += new System.EventHandler(this.buttonCropFlip_Click);
+            this.buttonCropFlip.Click += new System.EventHandler(this.ButtonCropFlip_Click);
             // 
             // WebPExample
             // 
