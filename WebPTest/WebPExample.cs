@@ -1,9 +1,10 @@
 ﻿// clsWebP, by Jose M. Piñeiro
 // Website: https://github.com/JosePineiro/WebP-wapper
-// Version: 1.0.0.4 (Jun 6, 2017)
+// Version: 1.0.0.8 (May 23, 2020)
 
 using System;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
 using WebPWrapper;
@@ -25,9 +26,9 @@ namespace WebPTest
             {
                 //Inform of execution mode
                 if (IntPtr.Size == 8)
-                    this.Text = Application.ProductName + " x64 " + Application.ProductVersion;
+                    this.Text = Application.ProductName + " x64 v" + Application.ProductVersion;
                 else
-                    this.Text = Application.ProductName + " x86 " + Application.ProductVersion;
+                    this.Text = Application.ProductName + " x86 v" + Application.ProductVersion;
 
                 //Inform of libWebP version
                 using (WebP webp = new WebP())
@@ -44,11 +45,11 @@ namespace WebPTest
         /// <summary>
         /// Test for load from file function
         /// </summary>
-        private void ButtonLoad_Click(object sender, System.EventArgs e)
+        private void ButtonLoad_Click(object sender, EventArgs e)
         {
             try
             {
-                using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
                     openFileDialog.Filter = "Image files (*.webp, *.png, *.tif, *.tiff)|*.webp;*.png;*.tif;*.tiff";
                     openFileDialog.FileName = "";
@@ -61,10 +62,10 @@ namespace WebPTest
                         if (Path.GetExtension(pathFileName) == ".webp")
                         {
                             using (WebP webp = new WebP())
-                                this.pictureBox.Image = webp.Load(pathFileName);
+                                pictureBox.Image = webp.Load(pathFileName);
                         }
                         else
-                            this.pictureBox.Image = Image.FromFile(pathFileName);
+                            pictureBox.Image = Image.FromFile(pathFileName);
                     }
                 }
             }
@@ -81,7 +82,7 @@ namespace WebPTest
         {
             try
             {
-                using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
                     openFileDialog.Filter = "WebP files (*.webp)|*.webp";
                     openFileDialog.FileName = "";
@@ -108,7 +109,7 @@ namespace WebPTest
         {
             try
             {
-                using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
                     openFileDialog.Filter = "WebP files (*.webp)|*.webp";
                     openFileDialog.FileName = "";
@@ -117,14 +118,16 @@ namespace WebPTest
                         string pathFileName = openFileDialog.FileName;
 
                         byte[] rawWebP = File.ReadAllBytes(pathFileName);
-                        WebPDecoderOptions decoderOptions = new WebPDecoderOptions();
-                        decoderOptions.use_cropping = 1;
-                        decoderOptions.crop_top = 100;       //Top beging of crop area
-                        decoderOptions.crop_left = 100;      //Left beging of crop area
-                        decoderOptions.crop_height = 400;   //Height of crop area
-                        decoderOptions.crop_width = 400;    //Width of crop area
-                        decoderOptions.use_threads = 1;     //Use multhreading
-                        decoderOptions.flip = 1;            //Flip the image
+                        WebPDecoderOptions decoderOptions = new WebPDecoderOptions
+                        {
+                            use_cropping = 1,
+                            crop_top = 100,          //Top beging of crop area
+                            crop_left = 100,         //Left beging of crop area
+                            crop_height = 400,       //Height of crop area
+                            crop_width = 400,        //Width of crop area
+                            use_threads = 1,         //Use multhreading
+                            flip = 1                //Flip the image
+                        };
                         using (WebP webp = new WebP())
                             this.pictureBox.Image = webp.Decode(rawWebP, decoderOptions);
                     }
@@ -139,7 +142,7 @@ namespace WebPTest
         /// <summary>
         /// Test encode functions
         /// </summary>
-        private void ButtonSave_Click(object sender, System.EventArgs e)
+        private void ButtonSave_Click(object sender, EventArgs e)
         {
             byte[] rawWebP;
 
@@ -158,38 +161,41 @@ namespace WebPTest
                 File.WriteAllBytes(lossyFileName, rawWebP);
                 MessageBox.Show("Made " + lossyFileName, "Simple lossy");
 
-                //Test encode lossly mode in memory with quality 75 and speed 9
-                string advanceLossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AdvanceLossy.webp");
-                using (WebP webp = new WebP())
-                    rawWebP = webp.EncodeLossy(bmp, 71, 9, true);
-                File.WriteAllBytes(advanceLossyFileName, rawWebP);
-                MessageBox.Show("Made " + advanceLossyFileName, "Advance lossy");
-                
                 //Test simple encode lossless mode in memory
                 string simpleLosslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SimpleLossless.webp");
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeLossless(bmp);
                 File.WriteAllBytes(simpleLosslessFileName, rawWebP);
                 MessageBox.Show("Made " + simpleLosslessFileName, "Simple lossless");
-                
-                //Test advance encode lossless mode in memory with speed 9
-                string losslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AdvanceLossless.webp");
-                using (WebP webp = new WebP())
-                    rawWebP = webp.EncodeLossless(bmp, 9, true);
-                File.WriteAllBytes(losslessFileName, rawWebP);
-                MessageBox.Show("Made " + losslessFileName, "Advance lossless");
-                
-                //Test encode near lossless mode in memory with quality 40 and speed 9
-                // quality 100: No-loss (bit-stream same as -lossless).
-                // quality 80: Very very high PSNR (around 54dB) and gets an additional 5-10% size reduction over WebP-lossless image.
-                // quality 60: Very high PSNR (around 48dB) and gets an additional 20%-25% size reduction over WebP-lossless image.
-                // quality 40: High PSNR (around 42dB) and gets an additional 30-35% size reduction over WebP-lossless image.
-                // quality 20 (and below): Moderate PSNR (around 36dB) and gets an additional 40-50% size reduction over WebP-lossless image.
-                string nearLosslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NearLossless.webp");
-                using (WebP webp = new WebP())
-                    rawWebP = webp.EncodeNearLossless(bmp, 40, 9, true);
-                File.WriteAllBytes(nearLosslessFileName, rawWebP);
-                MessageBox.Show("Made " + nearLosslessFileName, "Near lossless");
+
+                if (bmp.PixelFormat == PixelFormat.Format24bppRgb)
+                {
+                    //Test encode lossly mode in memory with quality 75 and speed 9
+                    string advanceLossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AdvanceLossy.webp");
+                    using (WebP webp = new WebP())
+                        rawWebP = webp.EncodeLossy(bmp, 71, 9, true);
+                    File.WriteAllBytes(advanceLossyFileName, rawWebP);
+                    MessageBox.Show("Made " + advanceLossyFileName, "Advance lossy");
+
+                    //Test advance encode lossless mode in memory with speed 9
+                    string losslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AdvanceLossless.webp");
+                    using (WebP webp = new WebP())
+                        rawWebP = webp.EncodeLossless(bmp, 9);
+                    File.WriteAllBytes(losslessFileName, rawWebP);
+                    MessageBox.Show("Made " + losslessFileName, "Advance lossless");
+
+                    //Test encode near lossless mode in memory with quality 40 and speed 9
+                    // quality 100: No-loss (bit-stream same as -lossless).
+                    // quality 80: Very very high PSNR (around 54dB) and gets an additional 5-10% size reduction over WebP-lossless image.
+                    // quality 60: Very high PSNR (around 48dB) and gets an additional 20%-25% size reduction over WebP-lossless image.
+                    // quality 40: High PSNR (around 42dB) and gets an additional 30-35% size reduction over WebP-lossless image.
+                    // quality 20 (and below): Moderate PSNR (around 36dB) and gets an additional 40-50% size reduction over WebP-lossless image.
+                    string nearLosslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NearLossless.webp");
+                    using (WebP webp = new WebP())
+                        rawWebP = webp.EncodeNearLossless(bmp, 40, 9);
+                    File.WriteAllBytes(nearLosslessFileName, rawWebP);
+                    MessageBox.Show("Made " + nearLosslessFileName, "Near lossless");
+                }
 
                 MessageBox.Show("End of Test");
             }
@@ -209,7 +215,7 @@ namespace WebPTest
                 if (this.pictureBox.Image == null)
                     MessageBox.Show("Please, load an reference image first");
 
-                using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
                     openFileDialog.Filter = "WebP images (*.webp)|*.webp";
                     openFileDialog.FileName = "";
@@ -260,7 +266,7 @@ namespace WebPTest
 
             try
             {
-                using (OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog())
+                using (OpenFileDialog openFileDialog = new OpenFileDialog())
                 {
                     openFileDialog.Filter = "WebP images (*.webp)|*.webp";
                     openFileDialog.FileName = "";
@@ -287,4 +293,3 @@ namespace WebPTest
         #endregion
     }
 }
-
