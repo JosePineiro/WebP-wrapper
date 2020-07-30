@@ -1,11 +1,11 @@
 # WebP-wrapper
 Wrapper for libwebp in C#. The most complete wrapper in pure managed C#.
 
-Exposes Simple Decoding API and Encoding API, Advanced  Decoding and Encoding API (with stadistis of compresion), Get version library and WebPGetFeatures (info of any WebP file). Exposed get PSNR, SSIM or LSIM distortion metrics.
+Exposes Simple Decoding API and Encoding API, Advanced Decoding and Encoding API (with statistics of compression), Get version library and WebPGetFeatures (info of any WebP file). Exposed get PSNR, SSIM or LSIM distortion metrics.
 
-The wrapper is in safe managed code in one class. No need external dll except libwebp_x86.dll(included v0.4.4) and libwebp_x64.dll (included v1.0.3). The wrapper work in 32, 64 bit or ANY (auto swith to the apropiate library).
+The wrapper is in safe managed code in one class. No need for external dll except libwebp_x86.dll(included v0.4.4) and libwebp_x64.dll (included v1.0.3). The wrapper works in 32, 64 bit or ANY (auto swith to the appropriate library).
 
-The code is comented and include simple example for using the wrapper.
+The code is commented and includes simple examples for using the wrapper.
 
 ## Decompress Functions:
 Load WebP image for WebP file
@@ -52,7 +52,7 @@ using (WebP webp = new WebP())
   webp.Save(bmp, 80, "test.webp");
 ```
 
-Encode to memory buffer in lossly mode with quality 75 and save to file
+Encode to memory buffer in lossy mode with quality 75 and save to file
 ```C#
 byte[] rawWebP = File.ReadAllBytes("test.jpg");
 using (WebP webp = new WebP())
@@ -60,7 +60,7 @@ using (WebP webp = new WebP())
 File.WriteAllBytes("test.webp", rawWebP); 
 ```
 
-Encode to memory buffer in lossly mode with quality 75 and speed 9. Save to file
+Encode to memory buffer in lossy mode with quality 75 and speed 9. Save to file
 ```C#
 byte[] rawWebP = File.ReadAllBytes("test.jpg");
 using (WebP webp = new WebP())
@@ -68,7 +68,7 @@ using (WebP webp = new WebP())
 File.WriteAllBytes("test.webp", rawWebP); 
 ```
 
-Encode to memory buffer in lossly mode with quality 75, speed 9 and get information. Save to file
+Encode to memory buffer in lossy mode with quality 75, speed 9 and get information. Save to file
 ```C#
 byte[] rawWebP = File.ReadAllBytes("test.jpg");
 using (WebP webp = new WebP())
