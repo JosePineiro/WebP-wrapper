@@ -900,7 +900,7 @@ namespace WebPWrapper
     {
 
         [DllImport("kernel32.dll", EntryPoint = "CopyMemory", SetLastError = false)]
-        public static extern void CopyMemory(IntPtr dest, IntPtr src, uint count);
+        internal static extern void CopyMemory(IntPtr dest, IntPtr src, uint count);
 
         private static readonly int WEBP_DECODER_ABI_VERSION = 0x0208;
 
@@ -909,7 +909,7 @@ namespace WebPWrapper
         /// <param name="preset">Type of image</param>
         /// <param name="quality">Quality of compresion</param>
         /// <returns>0 if error</returns>
-        public static int WebPConfigInit(ref WebPConfig config, WebPPreset preset, float quality)
+        internal static int WebPConfigInit(ref WebPConfig config, WebPPreset preset, float quality)
         {
             switch (IntPtr.Size)
             {
@@ -931,7 +931,7 @@ namespace WebPWrapper
         /// <param name="data_size">Size of rawWebP</param>
         /// <param name="features">Features of WebP image</param>
         /// <returns>VP8StatusCode</returns>
-        public static VP8StatusCode WebPGetFeatures(IntPtr rawWebP, int data_size, ref WebPBitstreamFeatures features)
+        internal static VP8StatusCode WebPGetFeatures(IntPtr rawWebP, int data_size, ref WebPBitstreamFeatures features)
         {
             switch (IntPtr.Size)
             {
@@ -952,7 +952,7 @@ namespace WebPWrapper
         /// <param name="config">The WebPConfig struct</param>
         /// <param name="level">between 0 (fastest, lowest compression) and 9 (slower, best compression)</param>
         /// <returns>0 in case of parameter errorr</returns>
-        public static int WebPConfigLosslessPreset(ref WebPConfig config, int level)
+        internal static int WebPConfigLosslessPreset(ref WebPConfig config, int level)
         {
             switch (IntPtr.Size)
             {
@@ -972,7 +972,7 @@ namespace WebPWrapper
         /// <summary>Check that 'config' is non-NULL and all configuration parameters are within their valid ranges.</summary>
         /// <param name="config">The WebPConfig struct</param>
         /// <returns>1 if config are OK</returns>
-        public static int WebPValidateConfig(ref WebPConfig config)
+        internal static int WebPValidateConfig(ref WebPConfig config)
         {
             switch (IntPtr.Size)
             {
@@ -992,7 +992,7 @@ namespace WebPWrapper
         /// <summary>Init the struct WebPPicture ckecking the dll version</summary>
         /// <param name="wpic">The WebPPicture struct</param>
         /// <returns>1 if not error</returns>
-        public static int WebPPictureInitInternal(ref WebPPicture wpic)
+        internal static int WebPPictureInitInternal(ref WebPPicture wpic)
         {
             switch (IntPtr.Size)
             {
@@ -1014,7 +1014,7 @@ namespace WebPWrapper
         /// <param name="bgr">Point to BGR data</param>
         /// <param name="stride">stride of BGR data</param>
         /// <returns>Returns 0 in case of memory error.</returns>
-        public static int WebPPictureImportBGR(ref WebPPicture wpic, IntPtr bgr, int stride)
+        internal static int WebPPictureImportBGR(ref WebPPicture wpic, IntPtr bgr, int stride)
         {
             switch (IntPtr.Size)
             {
@@ -1036,7 +1036,7 @@ namespace WebPWrapper
         /// <param name="bgr">Point to BGRA data</param>
         /// <param name="stride">stride of BGRA data</param>
         /// <returns>Returns 0 in case of memory error.</returns>
-        public static int WebPPictureImportBGRA(ref WebPPicture wpic, IntPtr bgra, int stride)
+        internal static int WebPPictureImportBGRA(ref WebPPicture wpic, IntPtr bgra, int stride)
         {
             switch (IntPtr.Size)
             {
@@ -1058,7 +1058,7 @@ namespace WebPWrapper
         /// <param name="bgr">Point to BGR data</param>
         /// <param name="stride">stride of BGR data</param>
         /// <returns>Returns 0 in case of memory error.</returns>
-        public static int WebPPictureImportBGRX(ref WebPPicture wpic, IntPtr bgr, int stride)
+        internal static int WebPPictureImportBGRX(ref WebPPicture wpic, IntPtr bgr, int stride)
         {
             switch (IntPtr.Size)
             {
@@ -1081,14 +1081,14 @@ namespace WebPWrapper
         /// <param name="wpic">Picture struct</param>
         /// <returns></returns>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        public delegate int WebPMemoryWrite([In()] IntPtr data, UIntPtr data_size, ref WebPPicture wpic);
-        public static WebPMemoryWrite OnCallback;
+        internal delegate int WebPMemoryWrite([In()] IntPtr data, UIntPtr data_size, ref WebPPicture wpic);
+        internal static WebPMemoryWrite OnCallback;
 
         /// <summary>Compress to webp format</summary>
         /// <param name="config">The config struct for compresion parameters</param>
         /// <param name="picture">'picture' hold the source samples in both YUV(A) or ARGB input</param>
         /// <returns>Returns 0 in case of error, 1 otherwise. In case of error, picture->error_code is updated accordingly.</returns>
-        public static int WebPEncode(ref WebPConfig config, ref WebPPicture picture)
+        internal static int WebPEncode(ref WebPConfig config, ref WebPPicture picture)
         {
             switch (IntPtr.Size)
             {
@@ -1109,7 +1109,7 @@ namespace WebPWrapper
         /// Note that this function does _not_ free the memory used by the 'picture' object itself.
         /// Besides memory (which is reclaimed) all other fields of 'picture' are preserved.</summary>
         /// <param name="picture">Picture struct</param>
-        public static void WebPPictureFree(ref WebPPicture picture)
+        internal static void WebPPictureFree(ref WebPPicture picture)
         {
             switch (IntPtr.Size)
             {
@@ -1134,7 +1134,7 @@ namespace WebPWrapper
         /// <param name="width">The range is limited currently from 1 to 16383</param>
         /// <param name="height">The range is limited currently from 1 to 16383</param>
         /// <returns>1 if success, otherwise error code returned in the case of (a) formatting error(s).</returns>
-        public static int WebPGetInfo(IntPtr data, int data_size, out int width, out int height)
+        internal static int WebPGetInfo(IntPtr data, int data_size, out int width, out int height)
         {
             switch (IntPtr.Size)
             {
@@ -1158,7 +1158,7 @@ namespace WebPWrapper
         /// <param name="output_buffer_size">Size of allocated buffer</param>
         /// <param name="output_stride">Specifies the distance between scanlines</param>
         /// <returns>output_buffer if function succeeds; NULL otherwise</returns>
-        public static int WebPDecodeBGRInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
+        internal static int WebPDecodeBGRInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
         {
             switch (IntPtr.Size)
             {
@@ -1182,7 +1182,7 @@ namespace WebPWrapper
         /// <param name="output_buffer_size">Size of allocated buffer</param>
         /// <param name="output_stride">Specifies the distance between scanlines</param>
         /// <returns>output_buffer if function succeeds; NULL otherwise</returns>
-        public static int WebPDecodeBGRAInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
+        internal static int WebPDecodeBGRAInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
         {
             switch (IntPtr.Size)
             {
@@ -1202,7 +1202,7 @@ namespace WebPWrapper
         /// <summary>Initialize the configuration as empty. This function must always be called first, unless WebPGetFeatures() is to be called.</summary>
         /// <param name="webPDecoderConfig">Configuration struct</param>
         /// <returns>False in case of mismatched version.</returns>
-        public static int WebPInitDecoderConfig(ref WebPDecoderConfig webPDecoderConfig)
+        internal static int WebPInitDecoderConfig(ref WebPDecoderConfig webPDecoderConfig)
         {
             switch (IntPtr.Size)
             {
@@ -1224,7 +1224,7 @@ namespace WebPWrapper
         /// <param name="data_size">Size of WebP data </param>
         /// <param name="webPDecoderConfig">Configuration struct</param>
         /// <returns>VP8_STATUS_OK if the decoding was successful</returns>
-        public static VP8StatusCode WebPDecode(IntPtr data, int data_size, ref WebPDecoderConfig webPDecoderConfig)
+        internal static VP8StatusCode WebPDecode(IntPtr data, int data_size, ref WebPDecoderConfig webPDecoderConfig)
         {
             switch (IntPtr.Size)
             {
@@ -1243,7 +1243,7 @@ namespace WebPWrapper
 
         /// <summary>Free any memory associated with the buffer. Must always be called last. Doesn't free the 'buffer' structure itself.</summary>
         /// <param name="buffer">WebPDecBuffer</param>
-        public static void WebPFreeDecBuffer(ref WebPDecBuffer buffer)
+        internal static void WebPFreeDecBuffer(ref WebPDecBuffer buffer)
         {
             switch (IntPtr.Size)
             {
@@ -1270,7 +1270,7 @@ namespace WebPWrapper
         /// <param name="quality_factor">Ranges from 0 (lower quality) to 100 (highest quality). Controls the loss and quality during compression</param>
         /// <param name="output">output_buffer with WebP image</param>
         /// <returns>Size of WebP Image or 0 if an error occurred</returns>
-        public static int WebPEncodeBGR(IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output)
+        internal static int WebPEncodeBGR(IntPtr bgr, int width, int height, int stride, float quality_factor, out IntPtr output)
         {
             switch (IntPtr.Size)
             {
@@ -1295,7 +1295,7 @@ namespace WebPWrapper
         /// <param name="quality_factor">Ranges from 0 (lower quality) to 100 (highest quality). Controls the loss and quality during compression</param>
         /// <param name="output">output_buffer with WebP image</param>
         /// <returns>Size of WebP Image or 0 if an error occurred</returns>
-        public static int WebPEncodeBGRA(IntPtr bgra, int width, int height, int stride, float quality_factor, out IntPtr output)
+        internal static int WebPEncodeBGRA(IntPtr bgra, int width, int height, int stride, float quality_factor, out IntPtr output)
         {
             switch (IntPtr.Size)
             {
@@ -1319,7 +1319,7 @@ namespace WebPWrapper
         /// <param name="stride">Specifies the distance between scanlines</param>
         /// <param name="output">output_buffer with WebP image</param>
         /// <returns>Size of WebP Image or 0 if an error occurred</returns>
-        public static int WebPEncodeLosslessBGR(IntPtr bgr, int width, int height, int stride, out IntPtr output)
+        internal static int WebPEncodeLosslessBGR(IntPtr bgr, int width, int height, int stride, out IntPtr output)
         {
             switch (IntPtr.Size)
             {
@@ -1343,7 +1343,7 @@ namespace WebPWrapper
         /// <param name="stride">Specifies the distance between scanlines</param>
         /// <param name="output">output_buffer with WebP image</param>
         /// <returns>Size of WebP Image or 0 if an error occurred</returns>
-        public static int WebPEncodeLosslessBGRA(IntPtr bgra, int width, int height, int stride, out IntPtr output)
+        internal static int WebPEncodeLosslessBGRA(IntPtr bgra, int width, int height, int stride, out IntPtr output)
         {
             switch (IntPtr.Size)
             {
@@ -1362,7 +1362,7 @@ namespace WebPWrapper
 
         /// <summary>Releases memory returned by the WebPEncode</summary>
         /// <param name="p">Pointer to memory</param>
-        public static void WebPFree(IntPtr p)
+        internal static void WebPFree(IntPtr p)
         {
             switch (IntPtr.Size)
             {
@@ -1383,7 +1383,7 @@ namespace WebPWrapper
 
         /// <summary>Get the webp version library</summary>
         /// <returns>8bits for each of major/minor/revision packet in integer. E.g: v2.5.7 is 0x020507</returns>
-        public static int WebPGetDecoderVersion()
+        internal static int WebPGetDecoderVersion()
         {
             switch (IntPtr.Size)
             {
@@ -1406,7 +1406,7 @@ namespace WebPWrapper
         /// <param name="metric_type">0 = PSNR, 1 = SSIM, 2 = LSIM</param>
         /// <param name="pResult">dB in the Y/U/V/Alpha/All order</param>
         /// <returns>False in case of error (src and ref don't have same dimension, ...)</returns>
-        public static int WebPPictureDistortion(ref WebPPicture srcPicture, ref WebPPicture refPicture, int metric_type, IntPtr pResult)
+        internal static int WebPPictureDistortion(ref WebPPicture srcPicture, ref WebPPicture refPicture, int metric_type, IntPtr pResult)
         {
             switch (IntPtr.Size)
             {
@@ -1427,7 +1427,7 @@ namespace WebPWrapper
 
     #region | Predefined |
     /// <summary>Enumerate some predefined settings for WebPConfig, depending on the type of source picture. These presets are used when calling WebPConfigPreset().</summary>
-    public enum WebPPreset
+    internal enum WebPPreset
     {
         /// <summary>Default preset.</summary>
         WEBP_PRESET_DEFAULT = 0,
@@ -1444,7 +1444,7 @@ namespace WebPWrapper
     };
 
     /// <summary>Encoding error conditions.</summary>
-    public enum WebPEncodingError
+    internal enum WebPEncodingError
     {
         /// <summary>No error.</summary>
         VP8_ENC_OK = 0,
@@ -1473,7 +1473,7 @@ namespace WebPWrapper
     }
 
     /// <summary>Enumeration of the status codes.</summary>
-    public enum VP8StatusCode
+    internal enum VP8StatusCode
     {
         /// <summary>No error.</summary>
         VP8_STATUS_OK = 0,
@@ -1491,7 +1491,7 @@ namespace WebPWrapper
     }
 
     /// <summary>Image characteristics hint for the underlying encoder.</summary>
-    public enum WebPImageHint
+    internal enum WebPImageHint
     {
         /// <summary>Default preset.</summary>
         WEBP_HINT_DEFAULT = 0,
@@ -1506,7 +1506,7 @@ namespace WebPWrapper
     };
 
     /// <summary>Describes the byte-ordering of packed samples in memory.</summary>
-    public enum WEBP_CSP_MODE
+    internal enum WEBP_CSP_MODE
     {
         /// <summary>Byte-order: R,G,B,R,G,B,...</summary>
         MODE_RGB = 0,
@@ -1548,7 +1548,7 @@ namespace WebPWrapper
     /// WEBP_HEADER->VP8L_HEADER->VP8L_DATA->DONE for a lossless image.
     /// If there is any error the decoder goes into state ERROR.
     /// </summary>
-    enum DecState
+    internal enum DecState
     {
         STATE_WEBP_HEADER,  // All the data before that of the VP8/VP8L chunk.
         STATE_VP8_HEADER,   // The VP8 Frame header (within the VP8 chunk).
@@ -1564,7 +1564,7 @@ namespace WebPWrapper
     #region | libwebp structs |
     /// <summary>Features gathered from the bitstream</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPBitstreamFeatures
+    internal struct WebPBitstreamFeatures
     {
         /// <summary>Width in pixels, as read from the bitstream.</summary>
         public int Width;
@@ -1583,7 +1583,7 @@ namespace WebPWrapper
 
     /// <summary>Compression parameters.</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPConfig
+    internal struct WebPConfig
     {
         /// <summary>Lossless encoding (0=lossy(default), 1=lossless).</summary>
         public int lossless;
@@ -1646,7 +1646,7 @@ namespace WebPWrapper
 
     /// <summary>Main exchange structure (input samples, output bytes, statistics)</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPPicture: IDisposable
+    internal struct WebPPicture
     {
         /// <summary>Main flag for encoder selecting between ARGB or YUV input. Recommended to use ARGB input (*argb, argb_stride) for lossless, and YUV input (*y, *u, *v, etc.) for lossy</summary>
         public int use_argb;
@@ -1707,16 +1707,11 @@ namespace WebPWrapper
         /// <summary>Padding for later use.</summary>
         [MarshalAsAttribute(UnmanagedType.ByValArray, SizeConst = 2, ArraySubType = UnmanagedType.U4)]
         private readonly uint[] pad4;
-
-        public void Dispose()
-        {
-            throw new NotImplementedException();
-        }
     };
 
     /// <summary>Structure for storing auxiliary statistics (mostly for lossy encoding).</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPAuxStats
+    internal struct WebPAuxStats
     {
         /// <summary>Final size</summary>
         public int coded_size;                 
@@ -1816,7 +1811,7 @@ namespace WebPWrapper
     };
 
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPDecoderConfig
+    internal struct WebPDecoderConfig
     {
         /// <summary>Immutable bitstream features (optional)</summary>
         public WebPBitstreamFeatures input;
@@ -1828,7 +1823,7 @@ namespace WebPWrapper
 
     /// <summary>Output buffer</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPDecBuffer
+    internal struct WebPDecBuffer
     {
         /// <summary>Colorspace.</summary>
         public WEBP_CSP_MODE colorspace;
@@ -1854,7 +1849,7 @@ namespace WebPWrapper
 
     /// <summary>Union of buffer parameters</summary>
     [StructLayoutAttribute(LayoutKind.Explicit)]
-    public struct RGBA_YUVA_Buffer
+    internal struct RGBA_YUVA_Buffer
     {
         [FieldOffsetAttribute(0)]
         public WebPRGBABuffer RGBA;
@@ -1864,7 +1859,7 @@ namespace WebPWrapper
     }
 
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPYUVABuffer
+    internal struct WebPYUVABuffer
     {
         /// <summary>Pointer to luma samples</summary>
         public IntPtr y;
@@ -1894,7 +1889,7 @@ namespace WebPWrapper
 
     /// <summary>Generic structure for describing the output sample buffer.</summary>
     [StructLayoutAttribute(LayoutKind.Sequential)]
-    public struct WebPRGBABuffer
+    internal struct WebPRGBABuffer
     {
         /// <summary>pointer to RGBA samples.</summary>
         public IntPtr rgba;
