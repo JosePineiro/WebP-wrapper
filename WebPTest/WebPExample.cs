@@ -120,12 +120,12 @@ namespace WebPTest
                         WebPDecoderOptions decoderOptions = new WebPDecoderOptions
                         {
                             use_cropping = 1,
-                            crop_top = 10,          //Top beging of crop area
-                            crop_left = 10,         //Left beging of crop area
-                            crop_height = 250,       //Height of crop area
-                            crop_width = 300,        //Width of crop area
-                            use_threads = 1,         //Use multhreading
-                            flip = 1                //Flip the image
+                            crop_top = 10,              //Top beginning of crop area
+                            crop_left = 10,             //Left beginning of crop area
+                            crop_height = 250,          //Height of crop area
+                            crop_width = 300,           //Width of crop area
+                            use_threads = 1,            //Use multi-threading
+                            flip = 1                    //Flip the image
                         };
                         using (WebP webp = new WebP())
                             this.pictureBox.Image = webp.Decode(rawWebP, decoderOptions);
@@ -151,24 +151,24 @@ namespace WebPTest
                 if (this.pictureBox.Image == null)
                     MessageBox.Show("Please, load an image first");
 
-                //get the picturebox image
+                //get the picture box image
                 Bitmap bmp = (Bitmap)pictureBox.Image;
 
-                //Test simple encode lossly mode in memory with quality 75
+                //Test simple encode in lossly mode in memory with quality 75
                 string lossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SimpleLossy.webp");
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeLossy(bmp, 75);
                 File.WriteAllBytes(lossyFileName, rawWebP);
                 MessageBox.Show("Made " + lossyFileName, "Simple lossy");
 
-                //Test simple encode lossless mode in memory
+                //Test simple encode in lossless mode in memory
                 string simpleLosslessFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SimpleLossless.webp");
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeLossless(bmp);
                 File.WriteAllBytes(simpleLosslessFileName, rawWebP);
                 MessageBox.Show("Made " + simpleLosslessFileName, "Simple lossless");
 
-                //Test encode lossly mode in memory with quality 75 and speed 9
+                //Test encode in lossly mode in memory with quality 75 and speed 9
                 string advanceLossyFileName = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AdvanceLossy.webp");
                 using (WebP webp = new WebP())
                     rawWebP = webp.EncodeLossy(bmp, 71, 9, true);
