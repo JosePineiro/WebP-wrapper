@@ -57,7 +57,6 @@ namespace WebPWrapper
             Bitmap bmp = null;
             BitmapData bmpData = null;
             GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
-            int size;
 
             try
             {
@@ -75,15 +74,13 @@ namespace WebPWrapper
                 int outputSize = bmpData.Stride * imgHeight;
                 IntPtr ptrData = pinnedWebP.AddrOfPinnedObject();
                 if (bmp.PixelFormat == PixelFormat.Format24bppRgb)
-                    size = UnsafeNativeMethods.WebPDecodeBGRInto(ptrData, rawWebP.Length, bmpData.Scan0, outputSize, bmpData.Stride);
+                     UnsafeNativeMethods.WebPDecodeBGRInto(ptrData, rawWebP.Length, bmpData.Scan0, outputSize, bmpData.Stride);
                 else
-                    size = UnsafeNativeMethods.WebPDecodeBGRAInto(ptrData, rawWebP.Length, bmpData.Scan0, outputSize, bmpData.Stride);
-                if (size == 0)
-                    throw new Exception("Can´t encode WebP");
+                     UnsafeNativeMethods.WebPDecodeBGRAInto(ptrData, rawWebP.Length, bmpData.Scan0, outputSize, bmpData.Stride);
 
                 return bmp;
             }
-            catch (Exception ex) { throw new Exception(ex.Message + "\r\nIn WebP.Decode"); }
+            catch (Exception) { throw; }
             finally
             {
                 //Unlock the pixels
@@ -100,7 +97,7 @@ namespace WebPWrapper
         /// <param name="rawWebP">the data to uncompress</param>
         /// <param name="options">Options for advanced decode</param>
         /// <returns>Bitmap with the WebP image</returns>
-        public Bitmap Decode(byte[] rawWebP, WebPDecoderOptions options)
+        public Bitmap Decode(byte[] rawWebP, WebPDecoderOptions options, PixelFormat pixelFormat = PixelFormat.DontCare)
         {
             GCHandle pinnedWebP = GCHandle.Alloc(rawWebP, GCHandleType.Pinned);
             Bitmap bmp = null;
@@ -368,10 +365,11 @@ namespace WebPWrapper
 
             BitmapData bmpData = null;
             IntPtr unmanagedData = IntPtr.Zero;
-            int size;
 
             try
             {
+                int size;
+                
                 //Get bmp data
                 bmpData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, bmp.PixelFormat);
 
@@ -1156,47 +1154,80 @@ namespace WebPWrapper
         /// <param name="output_buffer">Pointer to decoded WebP image</param>
         /// <param name="output_buffer_size">Size of allocated buffer</param>
         /// <param name="output_stride">Specifies the distance between scan lines</param>
-        /// <returns>output_buffer if function succeeds; NULL otherwise</returns>
-        internal static int WebPDecodeBGRInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
+        internal static void WebPDecodeBGRInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
         {
             switch (IntPtr.Size)
             {
                 case 4:
-                    return WebPDecodeBGRInto_x86(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride);
+                    if (WebPDecodeBGRInto_x86(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride) == null)
+                        throw new InvalidOperationException("Can not decode WebP");
+                    break;
                 case 8:
-                    return WebPDecodeBGRInto_x64(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride);
+                    if (WebPDecodeBGRInto_x64(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride) == null)
+                        throw new InvalidOperationException("Can not decode WebP");
+                    break;
                 default:
                     throw new InvalidOperationException("Invalid platform. Can not find proper function");
             }
         }
         [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecodeBGRInto")]
-        private static extern int WebPDecodeBGRInto_x86([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+        private static extern IntPtr WebPDecodeBGRInto_x86([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecodeBGRInto")]
-        private static extern int WebPDecodeBGRInto_x64([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+        private static extern IntPtr WebPDecodeBGRInto_x64([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
 
-        /// <summary>Decode WEBP image pointed to by *data and returns BGR samples into a preallocated buffer</summary>
+        /// <summary>Decode WEBP image pointed to by *data and returns BGRA samples into a preallocated buffer</summary>
         /// <param name="data">Pointer to WebP image data</param>
         /// <param name="data_size">This is the size of the memory block pointed to by data containing the image data</param>
         /// <param name="output_buffer">Pointer to decoded WebP image</param>
         /// <param name="output_buffer_size">Size of allocated buffer</param>
         /// <param name="output_stride">Specifies the distance between scan lines</param>
-        /// <returns>output_buffer if function succeeds; NULL otherwise</returns>
-        internal static int WebPDecodeBGRAInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
+        internal static void WebPDecodeBGRAInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
         {
             switch (IntPtr.Size)
             {
                 case 4:
-                    return WebPDecodeBGRAInto_x86(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride);
+                    if (WebPDecodeBGRAInto_x86(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride) == null)
+                        throw new InvalidOperationException("Can not decode WebP"); 
+                    break;
                 case 8:
-                    return WebPDecodeBGRAInto_x64(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride);
+                    if (WebPDecodeBGRAInto_x64(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride) == null)
+                        throw new InvalidOperationException("Can not decode WebP");
+                    break;
                 default:
                     throw new InvalidOperationException("Invalid platform. Can not find proper function");
             }
         }
         [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecodeBGRAInto")]
-        private static extern int WebPDecodeBGRAInto_x86([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+        private static extern IntPtr WebPDecodeBGRAInto_x86([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
         [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecodeBGRAInto")]
-        private static extern int WebPDecodeBGRAInto_x64([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+        private static extern IntPtr WebPDecodeBGRAInto_x64([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+
+        /// <summary>Decode WEBP image pointed to by *data and returns ARGB samples into a preallocated buffer</summary>
+        /// <param name="data">Pointer to WebP image data</param>
+        /// <param name="data_size">This is the size of the memory block pointed to by data containing the image data</param>
+        /// <param name="output_buffer">Pointer to decoded WebP image</param>
+        /// <param name="output_buffer_size">Size of allocated buffer</param>
+        /// <param name="output_stride">Specifies the distance between scan lines</param>
+        internal static void WebPDecodeARGBInto(IntPtr data, int data_size, IntPtr output_buffer, int output_buffer_size, int output_stride)
+        {
+            switch (IntPtr.Size)
+            {
+                case 4:
+                    if (WebPDecodeARGBInto_x86(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride) == null)
+                        throw new InvalidOperationException("Can not decode WebP");
+                    break;
+                case 8:
+                    if (WebPDecodeARGBInto_x64(data, (UIntPtr)data_size, output_buffer, output_buffer_size, output_stride) == null)
+                        throw new InvalidOperationException("Can not decode WebP");
+                    break;
+                default:
+                    throw new InvalidOperationException("Invalid platform. Can not find proper function");
+            }
+        }
+        [DllImport("libwebp_x86.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecodeARGBInto")]
+        private static extern IntPtr WebPDecodeARGBInto_x86([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
+        [DllImport("libwebp_x64.dll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "WebPDecodeARGBInto")]
+        private static extern IntPtr WebPDecodeARGBInto_x64([InAttribute()] IntPtr data, UIntPtr data_size, IntPtr output_buffer, int output_buffer_size, int output_stride);
 
         /// <summary>Initialize the configuration as empty. This function must always be called first, unless WebPGetFeatures() is to be called</summary>
         /// <param name="webPDecoderConfig">Configuration structure</param>

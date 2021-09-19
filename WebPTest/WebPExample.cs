@@ -31,7 +31,7 @@ namespace WebPTest
 
                 //Inform of libWebP version
                 using (WebP webp = new WebP())
-                    this.Text = this.Text + " (libwebp v" + webp.GetVersion() + ")";
+                    this.Text += " (libwebp v" + webp.GetVersion() + ")";
             }
             catch (Exception ex)
             {
